@@ -13,10 +13,9 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS } from "@/lib/constants";
 import type { Mood, MoodEntry, Medication, Reminder } from "@/lib/types";
-import { CheckCircle, XCircle, Smile, MessageCircle, Save } from "lucide-react";
+import { CheckCircle, Smile, Save } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -92,8 +91,16 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
     return { morning, lunch, dinner, night };
   }, [medicationsForDay]);
 
-  const handleMedicationStatus = (id: string, status: 'taken' | 'skipped') => {
-    setMedicationsForDay(prevMeds => prevMeds.map(med => med.id === id ? {...med, status} : med));
+  const handleMarkSectionAsTaken = (sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
+    const medsInSection = categorizedMeds[sectionKey];
+    const medIdsInSection = medsInSection.map(med => med.id);
+
+    setMedicationsForDay(prevMeds =>
+        prevMeds.map(med =>
+            // Mark as taken if it's in the section, and not already skipped (optional: or allow overriding skipped)
+            medIdsInSection.includes(med.id) ? { ...med, status: 'taken' } : med
+        )
+    );
   };
 
   const handleSaveStatus = async () => {
@@ -118,53 +125,53 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   };
   
   const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
+    const allTakenInSection = meds.length > 0 && meds.every(med => med.status === 'taken');
+    const anySkippedInSection = meds.some(med => med.status === 'skipped'); // To potentially disable "Mark All Taken" if needed
+
     return (
-        <AccordionItem value={sectionKey} className="border-b-0">
+        <AccordionItem value={sectionKey} className="border-b-0 bg-primary/10 border border-primary/20 rounded-lg mb-3 p-1">
              <AccordionTrigger 
-                className="text-md font-semibold text-foreground hover:no-underline py-3 px-1"
+                className="text-md font-semibold text-foreground hover:no-underline py-3 px-3"
             >
                 {title} ({meds.length})
             </AccordionTrigger>
-            <AccordionContent className="pt-0 pb-2 px-1">
+            <AccordionContent className="pt-0 pb-3 px-3">
                  {meds.length > 0 ? (
-                    <div className="flex flex-col space-y-3 pt-2">
-                        {meds.map((med) => (
-                        <Card key={med.id} className={`p-3 border rounded-lg ${med.status === 'taken' ? 'border-green-500 bg-green-500/10' : med.status === 'skipped' ? 'border-red-500 bg-red-500/10' : 'bg-card'}`}>
-                            <div className="flex items-center justify-between">
-                            <div className="flex items-center gap-3">
+                    <>
+                        <ul className="space-y-3 mb-4">
+                            {meds.map((med) => (
+                            <li key={med.id} className={`flex items-center gap-3 p-2 rounded-md ${med.status === 'taken' ? 'bg-green-500/20' : med.status === 'skipped' ? 'bg-red-500/20 line-through' : 'bg-background/50'}`}>
                                 {med.medicationDetails?.imageUrl && (
                                 <Image
                                     src={med.medicationDetails.imageUrl}
                                     alt={med.medicationDetails.name}
-                                    width={40}
-                                    height={40}
+                                    width={32}
+                                    height={32}
                                     className="rounded-md object-cover"
                                     data-ai-hint={med.medicationDetails.dataAiHint || "pill"}
                                 />
                                 )}
-                                <div>
-                                <p className="font-medium">{med.medicationDetails?.name || med.medicationName}</p>
-                                <p className="text-sm text-muted-foreground">{med.medicationDetails?.dosage} - {med.time}</p>
+                                <div className="flex-grow">
+                                    <p className="font-medium text-sm">{med.medicationDetails?.name || med.medicationName}</p>
+                                    <p className="text-xs text-muted-foreground">{med.medicationDetails?.dosage} - {med.time}</p>
                                 </div>
-                            </div>
-                            <div className="flex gap-2">
-                                <Button
-                                variant={med.status === 'taken' ? "default" : "outline"}
-                                size="sm"
-                                onClick={() => handleMedicationStatus(med.id, 'taken')}
-                                className={med.status === 'taken' ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                                disabled={med.status === 'skipped'}
-                                >
-                                <CheckCircle className="w-4 h-4 mr-1" /> Taken
-                                </Button>
-                                {/* Skip button removed as per request */}
-                            </div>
-                            </div>
-                        </Card>
-                        ))}
-                    </div>
+                                {med.status === 'taken' && <CheckCircle className="w-5 h-5 text-green-600" />}
+                            </li>
+                            ))}
+                        </ul>
+                        <Button
+                            variant={allTakenInSection ? "outline" : "default"}
+                            size="sm"
+                            onClick={() => handleMarkSectionAsTaken(sectionKey)}
+                            className={`w-full ${allTakenInSection ? "border-green-600 text-green-600 hover:bg-green-500/10" : "bg-green-600 hover:bg-green-700 text-white"}`}
+                            disabled={allTakenInSection || anySkippedInSection} // Optionally disable if any are skipped and you don't want to override
+                        >
+                            <CheckCircle className="w-4 h-4 mr-2" /> 
+                            {allTakenInSection ? "All Taken" : `Mark All ${title} as Taken`}
+                        </Button>
+                    </>
                  ) : (
-                     <p className="text-sm text-muted-foreground pt-2">No medications scheduled for {sectionKey}.</p>
+                     <p className="text-sm text-muted-foreground pt-2">No medications scheduled for {sectionKey.toLowerCase()}.</p>
                  )}
             </AccordionContent>
         </AccordionItem>
@@ -184,7 +191,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
 
         <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto px-1">
           <section>
-            <h3 className="text-md font-semibold mb-1 text-foreground">Your Medications Today</h3>
+            <h3 className="text-md font-semibold mb-2 text-foreground">Your Medications Today</h3>
             <Accordion type="multiple" className="w-full space-y-1" defaultValue={defaultOpenAccordionItems}>
                 {medicationSection("Morning", categorizedMeds.morning, 'morning')}
                 {medicationSection("Lunch", categorizedMeds.lunch, 'lunch')}
