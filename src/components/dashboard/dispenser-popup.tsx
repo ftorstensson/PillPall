@@ -51,18 +51,16 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const saveCurrentState = useCallback(async (currentMeds: MedicationToTake[], currentMood: Mood | null, currentNotes: string) => {
     const dateForEntry = (targetDate || new Date()).toISOString().split('T')[0];
     console.log("Medication Statuses for", dateForEntry, ":", currentMeds.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
-    if (currentMood) {
-      const newMoodEntry: MoodEntry = {
-        id: String(Date.now()), // Mock ID
-        date: dateForEntry,
-        mood: currentMood,
-        notes: currentNotes,
-      };
-      console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
-      // In a real app, you'd persist newMoodEntry and med statuses
-    } else {
-      console.log("No mood selected for", dateForEntry);
-    }
+    // Log mood entry whether it's null or a Mood value
+    const newMoodEntry: MoodEntry | { date: string, mood: null, notes: string } = {
+      id: String(Date.now()), // Mock ID
+      date: dateForEntry,
+      mood: currentMood, // This can be null
+      notes: currentNotes,
+    };
+    console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
+    
+    // In a real app, you'd persist newMoodEntry and med statuses
     toast({ title: "Status Updated", description: "Your changes have been automatically updated." });
     try {
       await triggerPhilMessage("STATUS_SAVED_POPUP", `Updated log for ${currentDisplayDate}`);
@@ -130,8 +128,9 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   };
 
   const handleMoodSelect = (moodValue: Mood) => {
-    setSelectedMood(moodValue);
-    saveCurrentState(medicationsForDay, moodValue, notes);
+    const newSelectedMood = selectedMood === moodValue ? null : moodValue;
+    setSelectedMood(newSelectedMood);
+    saveCurrentState(medicationsForDay, newSelectedMood, notes);
   };
 
   const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
@@ -247,11 +246,19 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
               {MOOD_OPTIONS.map(({ value, label, icon: Icon }) => (
                 <Button
                   key={value}
-                  variant={selectedMood === value ? "default" : "outline"}
                   onClick={() => handleMoodSelect(value)}
-                  className={`flex-1 min-w-[70px] sm:min-w-[80px] py-2 h-auto flex-col gap-1 ${selectedMood === value ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}
+                  className={cn(
+                    'flex-1 min-w-[70px] sm:min-w-[80px] py-2 h-auto flex-col gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md', 
+                    selectedMood === value
+                      ? 'bg-accent text-accent-foreground hover:bg-accent/90' // Green when selected
+                      : 'text-foreground border border-input bg-background hover:bg-accent hover:text-accent-foreground' // Outline style when not selected
+                  )}
                 >
-                  <Icon className={`w-6 h-6 sm:w-7 sm:h-7 mb-0.5 ${selectedMood === value ? 'text-primary-foreground' : 'text-foreground'}`} />
+                  <Icon className={cn(
+                      'w-7 h-7 sm:w-8 sm:h-8 mb-0.5', // Slightly larger icons
+                      selectedMood === value ? 'text-accent-foreground' : 'text-foreground' // Icon color matches button state
+                    )}
+                  />
                   <span className="text-xs">{label}</span>
                 </Button>
               ))}
