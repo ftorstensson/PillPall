@@ -46,16 +46,23 @@ export function SupportBotSection() {
         Phil
       </h2>
       <div className="space-y-4">
-        <Textarea
-          placeholder="Ask Phil anything about your medications or health..."
-          value={input}
-          onChange={(e) => setInput(e.target.value)}
-          rows={3}
-          className="border-border focus:ring-primary bg-yellow-100"
-        />
-        <Button onClick={handleSubmitQuery} disabled={isLoading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
-          {isLoading ? "Thinking..." : "Ask Phil"}
-        </Button>
+        <div className="relative">
+          <Textarea
+            placeholder="Ask Phil anything about your medications or health..."
+            value={input}
+            onChange={(e) => setInput(e.target.value)}
+            rows={3}
+            className="border-border focus:ring-primary bg-yellow-100 pr-24" // Added pr-24 for button space
+          />
+          <Button 
+            onClick={handleSubmitQuery} 
+            disabled={isLoading} 
+            size="sm"
+            className="absolute bottom-2 right-2 bg-primary text-primary-foreground hover:bg-primary/90"
+          >
+            {isLoading ? "Thinking..." : "Ask Phil"}
+          </Button>
+        </div>
         {response && (
           <div className="p-3 mt-4 border rounded-md bg-yellow-100 text-foreground">
             <h4 className="font-semibold text-sm mb-1">Phil says:</h4>
