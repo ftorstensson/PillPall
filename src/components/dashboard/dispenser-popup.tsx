@@ -8,12 +8,13 @@ import {
   DialogHeader,
   DialogTitle,
   DialogDescription,
+  DialogClose, // Import DialogClose
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS } from "@/lib/constants";
 import type { Mood, MoodEntry, Medication, Reminder } from "@/lib/types";
-import { CheckCircle } from "lucide-react";
+import { CheckCircle, XIcon } from "lucide-react"; // Changed from X to XIcon for clarity if needed, or just X
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -28,7 +29,7 @@ interface DispenserPopupProps {
 
 interface MedicationToTake extends Reminder {
     medicationDetails?: Medication;
-    status?: 'taken' | 'skipped';
+    status?: 'taken' | 'skipped' | undefined; // Added undefined for pending
 }
 
 const getTimeCategory = (time: string): 'morning' | 'lunch' | 'dinner' | 'night' => {
@@ -46,7 +47,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const [medicationsForDay, setMedicationsForDay] = useState<MedicationToTake[]>([]);
-  
+
   const saveCurrentState = useCallback(async (currentMeds: MedicationToTake[], currentMood: Mood | null, currentNotes: string) => {
     const dateForEntry = (targetDate || new Date()).toISOString().split('T')[0];
     console.log("Medication Statuses for", dateForEntry, ":", currentMeds.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
@@ -68,7 +69,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
     } catch (error) {
       console.error("Failed to trigger Phil's message from popup:", error);
     }
-  }, [targetDate, triggerPhilMessage, currentDisplayDate]);
+  }, [targetDate, triggerPhilMessage, currentDisplayDate, toast]);
 
 
   useEffect(() => {
@@ -83,13 +84,14 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
           r.isEnabled && (r.days.includes("Daily") || r.days.includes(dayStr))
       ).map(reminder => {
           const medDetails = MOCK_MEDICATIONS.find(m => m.id === reminder.medicationId);
-          return { ...reminder, medicationDetails: medDetails, status: undefined }; // Default status to undefined
+          // Persist status from a real data source or keep it in component state for demo
+          return { ...reminder, medicationDetails: medDetails, status: undefined };
       }).sort((a, b) => {
         const timeA = parseInt(a.time.replace(':', ''), 10);
         const timeB = parseInt(b.time.replace(':', ''), 10);
         return timeA - timeB;
       });
-      
+
       setMedicationsForDay(remindersForDate);
       setSelectedMood(null);
       setNotes("");
@@ -114,15 +116,19 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
 
   const handleMarkSectionAsTaken = (sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
     const medsInSection = categorizedMeds[sectionKey];
+    if (medsInSection.length === 0) return;
+
     const medIdsInSection = medsInSection.map(med => med.id);
+    const areAllCurrentlyTaken = medsInSection.every(med => med.status === 'taken');
+    const newStatus = areAllCurrentlyTaken ? undefined : 'taken';
 
     const newMeds = medicationsForDay.map(med =>
-        medIdsInSection.includes(med.id) ? { ...med, status: 'taken' } : med
+        medIdsInSection.includes(med.id) ? { ...med, status: newStatus } : med
     );
     setMedicationsForDay(newMeds);
     saveCurrentState(newMeds, selectedMood, notes);
   };
-  
+
   const handleMoodSelect = (moodValue: Mood) => {
     setSelectedMood(moodValue);
     saveCurrentState(medicationsForDay, moodValue, notes);
@@ -132,24 +138,28 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
     const newNotes = e.target.value;
     setNotes(newNotes);
     // For notes, auto-save could be on blur or debounced.
-    // For simplicity, we'll save notes when mood or med status is updated.
-    // Or if a dedicated "save notes" action is preferred, it can be added.
-    // For now, notes state is updated, and saveCurrentState picks it up.
+    // For simplicity, we'll save notes when mood or med status is updated or on blur.
   };
+  
+  const handleNotesBlur = () => {
+    saveCurrentState(medicationsForDay, selectedMood, notes);
+  }
 
 
   const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
     const allTakenInSection = meds.length > 0 && meds.every(med => med.status === 'taken');
-    
+    const buttonText = allTakenInSection ? `Unmark All ${title}` : `Mark All ${title} as Taken`;
+
     return (
-        <AccordionItem 
-            value={sectionKey} 
+        <AccordionItem
+            value={sectionKey}
             className={cn(
-                "border-b-0 border rounded-lg mb-3 p-1", 
-                meds.length === 0 ? "bg-muted border-muted-foreground/20" : "bg-primary/10 border-primary/20"
+                "border-b-0 border rounded-lg mb-3 p-1",
+                meds.length === 0 ? "bg-muted border-muted-foreground/20" :
+                allTakenInSection ? "bg-green-500/10 border-green-500/30" : "bg-primary/10 border-primary/20"
             )}
         >
-             <AccordionTrigger 
+             <AccordionTrigger
                 className="text-md font-semibold text-foreground hover:no-underline py-3 px-3"
             >
                 {title} ({meds.length})
@@ -185,14 +195,13 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                             onClick={() => handleMarkSectionAsTaken(sectionKey)}
                             className={cn(
                                 "w-full text-white",
-                                allTakenInSection 
-                                ? "bg-green-500 hover:bg-green-600 cursor-not-allowed" 
+                                allTakenInSection
+                                ? "bg-green-500 hover:bg-green-600" // Button remains green for "Unmark"
                                 : "bg-green-600 hover:bg-green-700"
                             )}
-                            disabled={allTakenInSection}
                         >
-                            <CheckCircle className="w-4 h-4 mr-2" /> 
-                            {allTakenInSection ? "All Taken" : `Mark All ${title} as Taken`}
+                            <CheckCircle className="w-4 h-4 mr-2" />
+                            {buttonText}
                         </Button>
                     </>
                  ) : (
@@ -207,10 +216,17 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
-        <DialogHeader>
+         {/* Custom Close Button */}
+        <DialogClose asChild>
+          <Button variant="ghost" className="absolute right-4 top-4 h-auto p-1 text-sm text-muted-foreground hover:text-foreground">
+            Save & Close 
+            <XIcon className="w-4 h-4 ml-1" />
+          </Button>
+        </DialogClose>
+        <DialogHeader className="pr-16"> {/* Add padding to prevent overlap with custom close button */}
           <DialogTitle className="text-lg font-semibold">{currentDisplayDate}</DialogTitle>
           <DialogDescription>
-            Manage your medications and track how you&apos;re feeling.
+            Manage your medications and track how you&apos;re feeling. Changes are saved automatically.
           </DialogDescription>
         </DialogHeader>
 
@@ -247,12 +263,13 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
               placeholder="Any notes about your mood or day? (Optional)"
               value={notes}
               onChange={handleNotesChange}
+              onBlur={handleNotesBlur} // Save notes on blur
               rows={3}
             />
           </section>
         </div>
-        {/* DialogFooter removed for auto-save behavior */}
       </DialogContent>
     </Dialog>
   );
 }
+
