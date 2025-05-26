@@ -36,7 +36,7 @@ export default function HomePage() {
   const headerActions = (
     <Button
       variant="outline"
-      className="bg-primary text-primary-foreground hover:bg-primary/90"
+      className="border-black text-black bg-white hover:bg-gray-100 hover:text-black focus:ring-black"
       onClick={() => setDispenserPopupOpen(true)}
     >
       <RotateCcw className="w-4 h-4 mr-2" />

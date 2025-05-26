@@ -58,7 +58,7 @@ export function SupportBotSection() {
             onClick={handleSubmitQuery} 
             disabled={isLoading} 
             size="sm"
-            className="absolute bottom-2 right-2 bg-primary text-primary-foreground hover:bg-primary/90"
+            className="absolute bottom-2 right-2 bg-black text-white hover:bg-gray-800"
           >
             {isLoading ? "Thinking..." : "Ask Phil"}
           </Button>
