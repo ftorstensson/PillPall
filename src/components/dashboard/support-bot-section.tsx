@@ -51,7 +51,7 @@ export function SupportBotSection() {
           value={input}
           onChange={(e) => setInput(e.target.value)}
           rows={3}
-          className="border-border focus:ring-primary"
+          className="border-border focus:ring-primary bg-yellow-100"
         />
         <Button onClick={handleSubmitQuery} disabled={isLoading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
           {isLoading ? "Thinking..." : "Ask Phil"}
