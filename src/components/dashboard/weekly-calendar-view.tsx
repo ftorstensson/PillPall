@@ -3,18 +3,26 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DAYS_OF_WEEK, MOCK_REMINDERS } from "@/lib/constants";
-import { CalendarDays, Pill } from "lucide-react"; 
+import { CalendarDays, Pill } from "lucide-react";
 import { cn } from "@/lib/utils";
+import { useState, useEffect } from "react"; // Import useState and useEffect
 
 interface WeeklyCalendarViewProps {
   onDayClick: (dayIndex: number) => void; // dayIndex: 0 for Monday, ..., 6 for Sunday
 }
 
 export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
-  const today = new Date();
-  const currentDayOfWeekJS = today.getDay(); // Sunday is 0, Monday is 1, ..., Saturday is 6
-  // Adjust so Monday is 0, Tuesday is 1, ..., Sunday is 6
-  const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
+  const [currentDate, setCurrentDate] = useState<Date | null>(null);
+
+  useEffect(() => {
+    // This effect runs only on the client, after hydration
+    setCurrentDate(new Date());
+  }, []); // Empty dependency array ensures this runs once on mount
+
+  // Values derived from currentDate
+  // Ensure these handle `currentDate` being null initially for server/initial-client render consistency
+  const currentDayOfWeekJS = currentDate ? currentDate.getDay() : -1; // Sunday is 0, Monday is 1, ..., Saturday is 6
+  const todayDayOfWeekMon0 = currentDate ? ((currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1) : -1; // Adjust so Monday is 0, ..., Sunday is 6
 
   return (
     <Card className="mb-6 bg-primary/20">
@@ -29,40 +37,46 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
           {DAYS_OF_WEEK.map((day, index) => {
             const dayIndex = index; // 0 for Monday, ..., 6 for Sunday
 
-            const dayDifference = dayIndex - todayDayOfWeekMon0;
-            const dateForThisDayCard = new Date(today);
-            dateForThisDayCard.setDate(today.getDate() + dayDifference);
-            dateForThisDayCard.setHours(0, 0, 0, 0);
+            let shortDayStr = "";
+            let isTodayClient = false;
+            let medicationCount = 0;
 
-            const shortDayStr = dateForThisDayCard.toLocaleDateString('en-US', { weekday: 'short' });
-            
-            const medsForThisDay = MOCK_REMINDERS.filter(r =>
-                r.isEnabled && (r.days.includes("Daily") || r.days.includes(shortDayStr))
-            );
-            const medicationCount = medsForThisDay.length;
+            if (currentDate && todayDayOfWeekMon0 !== -1) {
+              const dateForThisDayCard = new Date(currentDate);
+              const dayDifference = dayIndex - todayDayOfWeekMon0;
+              dateForThisDayCard.setDate(currentDate.getDate() + dayDifference);
+              dateForThisDayCard.setHours(0, 0, 0, 0);
 
-            const isToday = today.toDateString() === dateForThisDayCard.toDateString();
+              shortDayStr = dateForThisDayCard.toLocaleDateString('en-US', { weekday: 'short' });
+              
+              const medsForThisDay = MOCK_REMINDERS.filter(r =>
+                  r.isEnabled && (r.days.includes("Daily") || r.days.includes(shortDayStr))
+              );
+              medicationCount = medsForThisDay.length;
+              isTodayClient = currentDate.toDateString() === dateForThisDayCard.toDateString();
+            }
 
             return (
-              <Card 
-                key={day} 
+              <Card
+                key={day}
                 className={cn(
                   "p-3 bg-primary/20 cursor-pointer hover:bg-primary/30 transition-colors",
-                  isToday && "ring-2 ring-primary-foreground ring-offset-2 ring-offset-primary/30",
+                  isTodayClient && "ring-2 ring-primary-foreground ring-offset-2 ring-offset-primary/30",
                 )}
                 onClick={() => onDayClick(index)}
               >
-                <div className="flex items-center justify-between"> 
-                  <p className="font-medium text-md text-foreground">{day}</p> 
+                <div className="flex items-center justify-between">
+                  <p className="font-medium text-md text-foreground">{day}</p>
                   {medicationCount > 0 ? (
-                    <div className="flex items-center gap-1"> 
-                      <Pill className="w-4 h-4 text-foreground" /> 
-                      <p className="text-sm text-foreground"> 
+                    <div className="flex items-center gap-1">
+                      <Pill className="w-4 h-4 text-foreground" />
+                      <p className="text-sm text-foreground">
                         {medicationCount} med{medicationCount === 1 ? '' : 's'}
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-foreground">-</p> 
+                     // Display a dash or loading indicator if currentDate is not yet set
+                    <p className="text-sm text-foreground">{currentDate ? "-" : "..."}</p>
                   )}
                 </div>
               </Card>
@@ -73,4 +87,3 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
     </Card>
   );
 }
-
