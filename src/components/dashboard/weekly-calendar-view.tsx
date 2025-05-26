@@ -5,7 +5,7 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DAYS_OF_WEEK, MOCK_REMINDERS } from "@/lib/constants";
 import { CalendarDays, Pill } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { useState, useEffect } from "react"; // Import useState and useEffect
+import { useState, useEffect } from "react";
 
 interface WeeklyCalendarViewProps {
   onDayClick: (dayIndex: number) => void; // dayIndex: 0 for Monday, ..., 6 for Sunday
@@ -61,7 +61,7 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
                 key={day}
                 className={cn(
                   "p-3 bg-primary/20 cursor-pointer hover:bg-primary/30 transition-colors",
-                  isTodayClient && "ring-2 ring-primary-foreground ring-offset-2 ring-offset-primary/30",
+                  isTodayClient && "ring-2 ring-black ring-offset-2 ring-offset-primary/30", // Updated for thicker black outline for today
                 )}
                 onClick={() => onDayClick(index)}
               >
@@ -75,7 +75,6 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
                       </p>
                     </div>
                   ) : (
-                     // Display a dash or loading indicator if currentDate is not yet set
                     <p className="text-sm text-foreground">{currentDate ? "-" : "..."}</p>
                   )}
                 </div>
