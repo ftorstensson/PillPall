@@ -3,7 +3,7 @@
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { DAYS_OF_WEEK, MOCK_REMINDERS } from "@/lib/constants";
-import { CalendarDays, Pill } from "lucide-react"; // Added Pill icon
+import { CalendarDays, Pill } from "lucide-react"; 
 import { cn } from "@/lib/utils";
 
 interface WeeklyCalendarViewProps {
@@ -47,22 +47,22 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
               <Card 
                 key={day} 
                 className={cn(
-                  "p-3 bg-primary/20 cursor-pointer hover:bg-primary/30 transition-colors", // Removed text-center
+                  "p-3 bg-primary/20 cursor-pointer hover:bg-primary/30 transition-colors",
                   isToday && "ring-2 ring-primary-foreground ring-offset-2 ring-offset-primary/30",
                 )}
                 onClick={() => onDayClick(index)}
               >
-                <div className="flex items-center justify-between"> {/* Flex container for single line */}
-                  <p className="font-medium text-md text-foreground">{day}</p> {/* Increased day font */}
+                <div className="flex items-center justify-between"> 
+                  <p className="font-medium text-md text-foreground">{day}</p> 
                   {medicationCount > 0 ? (
-                    <div className="flex items-center gap-1"> {/* Container for meds count and icon */}
-                      <Pill className="w-4 h-4 text-muted-foreground" /> {/* Added Pill icon */}
-                      <p className="text-sm text-muted-foreground"> {/* Increased meds font */}
+                    <div className="flex items-center gap-1"> 
+                      <Pill className="w-4 h-4 text-foreground" /> 
+                      <p className="text-sm text-foreground"> 
                         {medicationCount} med{medicationCount === 1 ? '' : 's'}
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-muted-foreground">-</p> // Increased placeholder font
+                    <p className="text-sm text-foreground">-</p> 
                   )}
                 </div>
               </Card>
@@ -73,3 +73,4 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
     </Card>
   );
 }
+
