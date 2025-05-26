@@ -1,7 +1,6 @@
 
 "use client";
 
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { Bot } from "lucide-react";
@@ -23,10 +22,8 @@ export function SupportBotSection() {
     setIsLoading(true);
     setResponse("");
     try {
-      // Assuming a general question, not tied to a specific medication for this general support bot
-      // You might want a different flow or adapt pillWiseAssistant if it needs medicationName
       const aiInput: PillWiseAssistantInput = {
-        medicationName: "General Health", // Placeholder or make optional in flow
+        medicationName: "General Health", 
         question: input,
       };
       const result = await pillWiseAssistant(aiInput);
@@ -38,35 +35,34 @@ export function SupportBotSection() {
       setResponse("Sorry, I couldn't process that right now.");
     } finally {
       setIsLoading(false);
-      setInput(""); // Clear input after submission
+      setInput(""); 
     }
   };
 
   return (
-    <Card className="mb-6">
-      <CardHeader>
-        <CardTitle className="flex items-center gap-2">
-          <Bot className="w-6 h-6 text-primary" />
-          Phil
-        </CardTitle>
-      </CardHeader>
-      <CardContent className="space-y-4">
+    <div className="mb-6">
+      <h2 className="flex items-center gap-2 text-xl font-semibold mb-4">
+        <Bot className="w-6 h-6 text-primary" />
+        Phil
+      </h2>
+      <div className="space-y-4">
         <Textarea
           placeholder="Ask Phil anything about your medications or health..."
           value={input}
           onChange={(e) => setInput(e.target.value)}
           rows={3}
+          className="border-border focus:ring-primary"
         />
-        <Button onClick={handleSubmitQuery} disabled={isLoading} className="w-full bg-primary text-primary-foreground">
+        <Button onClick={handleSubmitQuery} disabled={isLoading} className="w-full bg-primary text-primary-foreground hover:bg-primary/90">
           {isLoading ? "Thinking..." : "Ask Phil"}
         </Button>
         {response && (
-          <div className="p-3 mt-4 border rounded-md bg-yellow-100">
+          <div className="p-3 mt-4 border rounded-md bg-yellow-100 text-foreground">
             <h4 className="font-semibold text-sm mb-1">Phil says:</h4>
             <p className="text-sm whitespace-pre-wrap">{response}</p>
           </div>
         )}
-      </CardContent>
-    </Card>
+      </div>
+    </div>
   );
 }
