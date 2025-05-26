@@ -15,7 +15,7 @@ export function WeeklyCalendarView() {
         </CardTitle>
       </CardHeader>
       <CardContent>
-        <div className="grid grid-cols-1 sm:grid-cols-2 md:grid-cols-3 lg:grid-cols-7 gap-2">
+        <div className="flex flex-col space-y-2"> {/* Changed from grid to flex flex-col */}
           {DAYS_OF_WEEK.map((day) => (
             <Card key={day} className="p-3 text-center bg-muted/50">
               <p className="font-medium text-sm">{day}</p>
@@ -28,3 +28,4 @@ export function WeeklyCalendarView() {
     </Card>
   );
 }
+
