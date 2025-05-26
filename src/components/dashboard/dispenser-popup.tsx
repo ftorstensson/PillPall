@@ -23,7 +23,8 @@ import { useToast } from "@/hooks/use-toast";
 interface DispenserPopupProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  targetDate?: Date; // New prop
+  targetDate?: Date; 
+  triggerPhilMessage: (eventType: string, eventContext?: string) => Promise<void>; // New prop
 }
 
 interface MedicationToTake extends Reminder {
@@ -31,7 +32,7 @@ interface MedicationToTake extends Reminder {
     status?: 'taken' | 'skipped';
 }
 
-export function DispenserPopup({ isOpen, onOpenChange, targetDate }: DispenserPopupProps) {
+export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMessage }: DispenserPopupProps) {
   const [currentDisplayDate, setCurrentDisplayDate] = useState("");
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
   const [notes, setNotes] = useState("");
@@ -41,24 +42,22 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate }: DispenserPo
 
   useEffect(() => {
     if (isOpen) {
-      const dateToUse = targetDate || new Date(); // Use targetDate if provided, else today
+      const dateToUse = targetDate || new Date(); 
       
       const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
       setCurrentDisplayDate(new Intl.DateTimeFormat('en-US', options).format(dateToUse));
 
-      // Filter reminders for the dateToUse and find corresponding medication details
       const dayStr = dateToUse.toLocaleDateString('en-US', { weekday: 'short' });
       const remindersForDate = MOCK_REMINDERS.filter(r => 
           r.isEnabled && (r.days.includes("Daily") || r.days.includes(dayStr))
       ).map(reminder => {
           const medDetails = MOCK_MEDICATIONS.find(m => m.id === reminder.medicationId);
-          // Ensure a new status object is created for each opening or date change if not persisted
           return { ...reminder, medicationDetails: medDetails, status: undefined }; 
       }).sort((a, b) => a.time.localeCompare(b.time));
       
       setMedicationsForDay(remindersForDate);
-      setSelectedMood(null); // Reset mood on open/date change
-      setNotes(""); // Reset notes on open/date change
+      setSelectedMood(null); 
+      setNotes(""); 
     }
   }, [isOpen, targetDate]);
 
@@ -66,9 +65,8 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate }: DispenserPo
     setMedicationsForDay(prevMeds => prevMeds.map(med => med.id === id ? {...med, status} : med));
   };
 
-  const handleSaveStatus = () => {
+  const handleSaveStatus = async () => {
     // In a real app, save medication status and mood entry to backend
-    // Ensure to use the date associated with `currentDisplayDate` (derived from `targetDate` or `new Date()`)
     const dateForEntry = (targetDate || new Date()).toISOString().split('T')[0];
 
     console.log("Medication Statuses for", dateForEntry, ":", medicationsForDay.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
@@ -80,9 +78,18 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate }: DispenserPo
         notes: notes,
       };
       console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
-      // MOCK_MOOD_ENTRIES.push(newMoodEntry); // Mock save if needed, consider updating based on date
+      // MOCK_MOOD_ENTRIES.push(newMoodEntry); // Mock save
     }
     toast({ title: "Status Saved", description: "Your medication and mood status has been recorded." });
+    
+    // Trigger Phil's message
+    try {
+      await triggerPhilMessage("STATUS_SAVED_POPUP");
+    } catch (error) {
+      console.error("Failed to trigger Phil's message from popup:", error);
+      // Optionally show a fallback toast or handle error
+    }
+
     onOpenChange(false); // Close dialog
   };
 

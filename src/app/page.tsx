@@ -3,7 +3,7 @@
 
 import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
-import { useState, useEffect } from "react";
+import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
 import { Pill, RotateCcw } from "lucide-react"; 
 import { DispenserPopup } from "@/components/dashboard/dispenser-popup";
@@ -15,39 +15,51 @@ import {
   AccordionItem,
   AccordionTrigger,
 } from "@/components/ui/accordion";
-import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
+import { Card, CardContent } from "@/components/ui/card";
+import { philMotivator, PhilMotivatorInput } from "@/ai/flows/phil-motivator"; // Updated import
 
 export default function HomePage() {
   const [dispenserPopupOpen, setDispenserPopupOpen] = useState(false);
   const [selectedDateForPopup, setSelectedDateForPopup] = useState<Date | null>(null);
   const { toast } = useToast();
   const [pageTitle, setPageTitle] = useState("PillPal"); 
-  const [currentDate, setCurrentDate] = useState('');
+  
+  const [philMessage, setPhilMessage] = useState<string>("Thinking...");
+  const [philEmoji, setPhilEmoji] = useState<string>("⏳");
+  const [isPhilLoading, setIsPhilLoading] = useState(true);
 
-  useEffect(() => {
-    const date = new Date();
-    const options: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' };
-    const formattedDate = new Intl.DateTimeFormat('en-US', options).format(date);
-    setCurrentDate(formattedDate);
+  const triggerPhilMessage = useCallback(async (eventType: string, eventContext?: string) => {
+    setIsPhilLoading(true);
+    try {
+      const input: PhilMotivatorInput = { eventType, eventContext };
+      const result = await philMotivator(input);
+      setPhilMessage(result.message);
+      setPhilEmoji(result.emoji);
+    } catch (error) {
+      console.error("Error with Phil's motivation:", error);
+      setPhilMessage("Had a little hiccup, but I'm still here for you!");
+      setPhilEmoji("😅");
+    } finally {
+      setIsPhilLoading(false);
+    }
   }, []);
 
+  useEffect(() => {
+    triggerPhilMessage("PAGE_LOAD");
+  }, [triggerPhilMessage]);
+
   const handleOpenReFillPal = () => {
-    setSelectedDateForPopup(new Date()); // Set to today for the generic ReFillPal button
+    setSelectedDateForPopup(new Date()); 
     setDispenserPopupOpen(true);
   };
 
-  const handleCalendarDayClick = (dayIndex: number) => { // dayIndex: 0 for Mon, ..., 6 for Sun
+  const handleCalendarDayClick = (dayIndex: number) => { 
     const today = new Date();
-    const currentDayOfWeekJS = today.getDay(); // 0 for Sun, 1 for Mon, ..., 6 for Sat
-    
-    // Adjust today's day to be Mon=0, ..., Sun=6 to match dayIndex
+    const currentDayOfWeekJS = today.getDay(); 
     const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
-    
     const dayDifference = dayIndex - todayDayOfWeekMon0;
-    
     const calculatedDate = new Date(today);
     calculatedDate.setDate(today.getDate() + dayDifference);
-    
     setSelectedDateForPopup(calculatedDate);
     setDispenserPopupOpen(true);
   };
@@ -68,11 +80,15 @@ export default function HomePage() {
       <DispenserPopup 
         isOpen={dispenserPopupOpen} 
         onOpenChange={setDispenserPopupOpen} 
-        targetDate={selectedDateForPopup || undefined} // Pass the selected date
+        targetDate={selectedDateForPopup || undefined}
+        triggerPhilMessage={triggerPhilMessage} // Pass the function to the popup
       />
       
       <div className="max-w-2xl mx-auto space-y-6">
-        <SupportBotSection />
+        <SupportBotSection 
+          philMessage={isPhilLoading ? "Phil is thinking..." : philMessage} 
+          philEmoji={isPhilLoading ? "⏳" : philEmoji} 
+        />
         <WeeklyCalendarView onDayClick={handleCalendarDayClick} />
 
         <Accordion type="single" collapsible className="w-full">
