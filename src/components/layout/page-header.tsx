@@ -1,23 +1,39 @@
 
 "use client";
+import React, { useState, useEffect } from 'react';
 import { SidebarTrigger } from "@/components/ui/sidebar";
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MOCK_USER_PROFILE } from "@/lib/constants";
-import { LogOut, UserCircle } from "lucide-react";
+import { LogOut, Users, Settings, Home } from "lucide-react"; // Added Users, Settings, Home
+import Link from 'next/link';
 
 interface PageHeaderProps {
   title: string;
   children?: React.ReactNode;
+  showDate?: boolean;
 }
 
-export function PageHeader({ title, children }: PageHeaderProps) {
+export function PageHeader({ title, children, showDate = false }: PageHeaderProps) {
+  const [currentDate, setCurrentDate] = useState('');
+
+  useEffect(() => {
+    if (showDate) {
+      const date = new Date();
+      const options: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'short', year: 'numeric' };
+      setCurrentDate(new Intl.DateTimeFormat('en-US', options).format(date));
+    }
+  }, [showDate]);
+
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 bg-background/80 backdrop-blur-sm border-b">
       <div className="flex items-center gap-2">
         <SidebarTrigger className="md:hidden" />
-        <h1 className="text-xl font-semibold">{title}</h1>
+        <div>
+          <h1 className="text-xl font-semibold">{title}</h1>
+          {showDate && currentDate && <p className="text-xs text-muted-foreground">{currentDate}</p>}
+        </div>
       </div>
       <div className="flex items-center gap-4">
         {children}
@@ -28,7 +44,6 @@ export function PageHeader({ title, children }: PageHeaderProps) {
 }
 
 function UserMenu() {
-  // In a real app, user data would come from context or auth hook
   const user = MOCK_USER_PROFILE;
 
   return (
@@ -51,11 +66,24 @@ function UserMenu() {
           </div>
         </DropdownMenuLabel>
         <DropdownMenuSeparator />
-        <DropdownMenuItem>
-          <UserCircle className="w-4 h-4 mr-2" />
-          Profile
+        <DropdownMenuItem asChild>
+          <Link href="/settings">
+            <Settings className="w-4 h-4 mr-2" />
+            Settings
+          </Link>
         </DropdownMenuItem>
+        <DropdownMenuItem asChild>
+          <Link href="/helpers"> {/* Assuming /helpers is family sharing */}
+            <Users className="w-4 h-4 mr-2" />
+            Family sharing
+          </Link>
+        </DropdownMenuItem>
+        <DropdownMenuSeparator />
         <DropdownMenuItem>
           <LogOut className="w-4 h-4 mr-2" />
           Log out
-        </Dropdown
+        </DropdownMenuItem>
+      </DropdownMenuContent>
+    </DropdownMenu>
+  );
+}

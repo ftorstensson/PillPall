@@ -1,4 +1,4 @@
-# **App Name**: PillWise
+# **App Name**: PillPal
 
 ## Core Features:
 

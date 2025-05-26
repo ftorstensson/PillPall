@@ -15,9 +15,10 @@ interface MainLayoutProps {
   children: React.ReactNode;
   pageTitle: string;
   headerActions?: React.ReactNode;
+  showDate?: boolean; // Added prop
 }
 
-export function MainLayout({ children, pageTitle, headerActions }: MainLayoutProps) {
+export function MainLayout({ children, pageTitle, headerActions, showDate = false }: MainLayoutProps) {
   return (
     <SidebarProvider defaultOpen={true}>
       <Sidebar collapsible="icon" variant="sidebar" side="left">
@@ -25,11 +26,13 @@ export function MainLayout({ children, pageTitle, headerActions }: MainLayoutPro
         <SidebarRail />
       </Sidebar>
       <SidebarInset className="min-h-screen">
-        <PageHeader title={pageTitle}>
+        <PageHeader title={pageTitle} showDate={showDate}>
           {headerActions}
         </PageHeader>
         <main className="flex-1 p-4 md:p-6 lg:p-8">
           {children}
         </main>
       </SidebarInset>
-    </
+    </SidebarProvider>
+  );
+}

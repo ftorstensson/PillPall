@@ -1,17 +1,20 @@
 import type { NavItem, StoreItem, Medication, Reminder, MoodEntry, Helper, UserProfile } from './types';
-import { LayoutDashboard, Pill, Bell, Smile, Users, Bot, Store as StoreIcon, Settings as SettingsIcon, MessageCircle, CalendarDays, Thermometer, HeartPulse } from 'lucide-react';
+import { LayoutDashboard, Pill, Bell, Smile, Users, Bot, Store as StoreIcon, Settings as SettingsIcon, MessageCircle, CalendarDays, Thermometer, HeartPulse, Home } from 'lucide-react';
 
-export const APP_NAME = "PillWise";
+export const APP_NAME = "PillPal"; // Updated from PillWise
 
 export const NAV_ITEMS: NavItem[] = [
-  { title: 'Dashboard', href: '/', icon: LayoutDashboard },
+  { title: 'Home', href: '/', icon: Home }, // Changed Dashboard to Home
   { title: 'Medications', href: '/medications', icon: Pill },
   { title: 'Reminders', href: '/reminders', icon: Bell },
   { title: 'Mood Diary', href: '/mood-diary', icon: Smile },
-  { title: 'Helpers', href: '/helpers', icon: Users },
-  { title: 'PillWise AI', href: '/assistant', icon: Bot },
+  { title: 'Helpers', href: '/helpers', icon: Users }, // This could be "Family Sharing"
+  { title: 'PillPal AI', href: '/assistant', icon: Bot }, // Updated from PillWise AI
   { title: 'Store', href: '/store', icon: StoreIcon },
   { title: 'Settings', href: '/settings', icon: SettingsIcon },
+  // Added Family Sharing explicitly if it's a main page, wireframe only shows in dropdown
+  // If 'Helpers' is meant to be 'Family Sharing', adjust accordingly.
+  // For now, let's assume 'Helpers' covers 'Family Sharing' for the main nav.
 ];
 
 export const MOCK_USER_PROFILE: UserProfile = {
@@ -47,16 +50,18 @@ export const MOCK_HELPERS: Helper[] = [
 ];
 
 export const MOCK_STORE_ITEMS: StoreItem[] = [
-  { id: 's1', name: 'PillWise Smart Dispenser', type: 'dispenser', price: '$79.99', imageUrl: 'https://placehold.co/300x200.png', description: 'Automated pill dispenser with app integration.', dataAiHint: 'medicine dispenser' },
-  { id: 's2', name: 'PillWise Mini Dispenser', type: 'dispenser', price: '$49.99', imageUrl: 'https://placehold.co/300x200.png', description: 'Compact smart dispenser for travel.', dataAiHint: 'pill dispenser' },
-  { id: 's3', name: 'Calm Waters Skin', type: 'skin', price: '$4.99', imageUrl: 'https://placehold.co/300x200.png', description: 'A soothing blue skin for your PillWise dispenser.', dataAiHint: 'abstract pattern' },
+  { id: 's1', name: 'PillPal Smart Dispenser', type: 'dispenser', price: '$79.99', imageUrl: 'https://placehold.co/300x200.png', description: 'Automated pill dispenser with app integration.', dataAiHint: 'medicine dispenser' },
+  { id: 's2', name: 'PillPal Mini Dispenser', type: 'dispenser', price: '$49.99', imageUrl: 'https://placehold.co/300x200.png', description: 'Compact smart dispenser for travel.', dataAiHint: 'pill dispenser' },
+  { id: 's3', name: 'Calm Waters Skin', type: 'skin', price: '$4.99', imageUrl: 'https://placehold.co/300x200.png', description: 'A soothing blue skin for your PillPal dispenser.', dataAiHint: 'abstract pattern' },
   { id: 's4', name: 'Forest Green Skin', type: 'skin', price: '$4.99', imageUrl: 'https://placehold.co/300x200.png', description: 'A vibrant green nature-themed skin.', dataAiHint: 'nature pattern' },
 ];
 
 export const MOOD_OPTIONS: { value: MoodEntry['mood']; label: string; icon: React.ElementType }[] = [
     { value: 'great', label: 'Great', icon: Smile },
-    { value: 'good', label: 'Good', icon: Smile },
-    { value: 'okay', label: 'Okay', icon: MessageCircle },
-    { value: 'bad', label: 'Bad', icon: MessageCircle },
-    { value: 'terrible', label: 'Terrible', icon: MessageCircle },
+    { value: 'good', label: 'Good', icon: Smile }, // Using Smile for 'good' as well, or use a different happy face
+    { value: 'okay', label: 'Okay', icon: MessageCircle }, // MessageCircle is a neutral face, suitable for 'okay'
+    { value: 'bad', label: 'Bad', icon: MessageCircle }, // Consider specific sad face icons if available e.g. Frown
+    { value: 'terrible', label: 'Terrible', icon: MessageCircle }, // Consider specific very sad face icons
   ];
+
+export const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

@@ -1,3 +1,4 @@
+
 "use client";
 
 import Link from "next/link";
@@ -8,7 +9,7 @@ import {
   SidebarMenuButton,
 } from "@/components/ui/sidebar";
 import { NAV_ITEMS, APP_NAME } from "@/lib/constants";
-import { Pill } from "lucide-react";
+import { Pill } from "lucide-react"; // Assuming Pill icon is still desired for app logo
 
 export function SidebarNav() {
   const pathname = usePathname();

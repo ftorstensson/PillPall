@@ -15,8 +15,8 @@ const geistMono = Geist_Mono({
 });
 
 export const metadata: Metadata = {
-  title: 'PillWise - Your Medication Companion',
-  description: 'PillWise helps you manage medications, track mood, and stay on schedule.',
+  title: 'PillPal - Your Medication Companion', // Updated from PillWise
+  description: 'PillPal helps you manage medications, track mood, and stay on schedule.', // Updated
 };
 
 export default function RootLayout({
