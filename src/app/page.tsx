@@ -34,8 +34,8 @@ export default function HomePage() {
 
 
   const headerActions = (
-    <Button 
-      variant="outline" 
+    <Button
+      variant="outline"
       className="bg-primary text-primary-foreground hover:bg-primary/90"
       onClick={() => setDispenserPopupOpen(true)}
     >
@@ -48,7 +48,7 @@ export default function HomePage() {
     <MainLayout pageTitle={pageTitle} headerActions={headerActions} showDate={true}>
       <DispenserPopup isOpen={dispenserPopupOpen} onOpenChange={setDispenserPopupOpen} />
       
-      <div className="space-y-6">
+      <div className="max-w-2xl mx-auto space-y-6">
         <SupportBotSection />
         <WeeklyCalendarView />
 

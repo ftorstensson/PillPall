@@ -8,7 +8,7 @@ body {
 
 @layer base {
   :root {
-    --background: 208 100% 97%; /* AliceBlue - Very Light Blue */
+    --background: 0 0% 100%; /* White */
     --foreground: 224 71% 4%; /* Dark Blue/Black - for general text */
 
     --card: 0 0% 100%; /* White */
@@ -98,5 +98,8 @@ body {
 @layer base {
   * {
     @apply border-border;
+  }
+  body {
+    @apply bg-background text-foreground;
   }
 }
