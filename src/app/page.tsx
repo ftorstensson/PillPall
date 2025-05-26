@@ -84,7 +84,7 @@ export default function HomePage() {
         triggerPhilMessage={triggerPhilMessage} // Pass the function to the popup
       />
       
-      <div className="max-w-2xl mx-auto space-y-6">
+      <div className="max-w-lg mx-auto space-y-6"> {/* Changed max-w-2xl to max-w-lg */}
         <SupportBotSection 
           philMessage={isPhilLoading ? "Phil is thinking..." : philMessage} 
           philEmoji={isPhilLoading ? "⏳" : philEmoji} 
