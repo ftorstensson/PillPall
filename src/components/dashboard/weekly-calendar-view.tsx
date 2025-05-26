@@ -2,10 +2,11 @@
 "use client";
 
 import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
-import { DAYS_OF_WEEK, MOCK_REMINDERS } from "@/lib/constants";
+import { DAYS_OF_WEEK, MOCK_REMINDERS, MOCK_MOOD_ENTRIES } from "@/lib/constants";
 import { CalendarDays, Pill } from "lucide-react";
 import { cn } from "@/lib/utils";
 import { useState, useEffect } from "react";
+import type { MoodEntry } from "@/lib/types";
 
 interface WeeklyCalendarViewProps {
   onDayClick: (dayIndex: number) => void; // dayIndex: 0 for Monday, ..., 6 for Sunday
@@ -56,11 +57,24 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
               );
               medicationCount = medsForThisDay.length;
               
-              // Determine background color based on whether the day is past, today, or future
-              if (dateForThisDayCard > todayDateOnly) {
+              const dateForThisDayCardISO = dateForThisDayCard.toISOString().split('T')[0];
+
+              if (dateForThisDayCard < todayDateOnly) {
+                // Past day logic
+                const moodEntry = MOCK_MOOD_ENTRIES.find(entry => entry.date === dateForThisDayCardISO);
+                if (moodEntry) {
+                  if (moodEntry.mood === 'great' || moodEntry.mood === 'good' || moodEntry.mood === 'okay') {
+                    dayCardBgClass = "bg-green-500/20"; // Light green for good/okay past days
+                  } else { // 'bad', 'terrible'
+                    dayCardBgClass = "bg-red-500/20"; // Light red for bad/terrible past days
+                  }
+                } else {
+                  dayCardBgClass = "bg-red-500/20"; // Default to light red if no mood logged for a past day
+                }
+              } else if (dateForThisDayCard.getTime() === todayDateOnly.getTime()) {
+                dayCardBgClass = "bg-primary/20"; // Standard light blue for today
+              } else { // Future day
                 dayCardBgClass = "bg-primary/10"; // Lighter blue for future days
-              } else {
-                dayCardBgClass = "bg-primary/20"; // Standard light blue for past and today
               }
             }
 
@@ -69,8 +83,7 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
                 key={day}
                 className={cn(
                   "p-3 cursor-pointer hover:bg-primary/30 transition-colors",
-                  dayCardBgClass // Apply dynamic background class
-                  // Outline for "today" has been removed.
+                  dayCardBgClass 
                 )}
                 onClick={() => onDayClick(index)}
               >
@@ -84,7 +97,7 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
                       </p>
                     </div>
                   ) : (
-                    <p className="text-sm text-foreground">{currentDate ? "-" : "..."}</p>
+                     <p className="text-sm text-foreground">{currentDate ? "-" : "..."}</p>
                   )}
                 </div>
               </Card>
@@ -95,3 +108,4 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
     </Card>
   );
 }
+
