@@ -90,7 +90,7 @@ export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
           <section>
             <h3 className="text-md font-semibold mb-3 text-foreground">Your Medications</h3>
             {medicationsForToday.length > 0 ? (
-              <div className="space-y-3">
+              <div className="flex flex-col space-y-3">
                 {medicationsForToday.map((med) => (
                   <Card key={med.id} className={`p-3 border rounded-lg ${med.status === 'taken' ? 'border-green-500 bg-green-500/10' : med.status === 'skipped' ? 'border-red-500 bg-red-500/10' : 'bg-card'}`}>
                     <div className="flex items-center justify-between">
