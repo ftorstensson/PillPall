@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS } from "@/lib/constants";
+import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS, MOCK_DAILY_MED_STATUSES } from "@/lib/constants";
 import type { Mood, MoodEntry, Medication, Reminder } from "@/lib/types";
 import { CheckCircle, XIcon } from "lucide-react";
 import Image from "next/image";
@@ -29,7 +29,7 @@ interface DispenserPopupProps {
 
 interface MedicationToTake extends Reminder {
     medicationDetails?: Medication;
-    status?: 'taken' | 'skipped' | undefined;
+    status?: 'taken' | undefined; // 'skipped' status removed as per prior simplification
 }
 
 const getTimeCategory = (time: string): 'morning' | 'lunch' | 'dinner' | 'night' => {
@@ -48,19 +48,41 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const { toast } = useToast();
   const [medicationsForDay, setMedicationsForDay] = useState<MedicationToTake[]>([]);
 
+  const getDateISO = (date: Date): string => date.toISOString().split('T')[0];
+
   const saveCurrentState = useCallback(async (currentMeds: MedicationToTake[], currentMood: Mood | null, currentNotes: string) => {
-    const dateForEntry = (targetDate || new Date()).toISOString().split('T')[0];
-    console.log("Medication Statuses for", dateForEntry, ":", currentMeds.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
+    const dateForEntry = getDateISO(targetDate || new Date());
+    
+    // Persist medication statuses
+    if (!MOCK_DAILY_MED_STATUSES[dateForEntry]) {
+      MOCK_DAILY_MED_STATUSES[dateForEntry] = {};
+    }
+    currentMeds.forEach(med => {
+      MOCK_DAILY_MED_STATUSES[dateForEntry][med.id] = med.status;
+    });
+    console.log("Medication Statuses for", dateForEntry, ":", MOCK_DAILY_MED_STATUSES[dateForEntry]);
+
     // Log mood entry whether it's null or a Mood value
     const newMoodEntry: MoodEntry | { date: string, mood: null, notes: string } = {
       id: String(Date.now()), // Mock ID
       date: dateForEntry,
-      mood: currentMood, // This can be null
+      mood: currentMood, 
       notes: currentNotes,
     };
     console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
+    // In a real app, you'd persist newMoodEntry
+    // And MOCK_MOOD_ENTRIES would also be updated or use a persistent source
+    const existingMoodIndex = MOCK_MOOD_ENTRIES.findIndex(e => e.date === dateForEntry);
+    if (existingMoodIndex > -1) {
+        if (currentMood === null && currentNotes === "") { // If mood is deselected and notes are empty, remove entry
+            MOCK_MOOD_ENTRIES.splice(existingMoodIndex, 1);
+        } else {
+            MOCK_MOOD_ENTRIES[existingMoodIndex] = { ...MOCK_MOOD_ENTRIES[existingMoodIndex], mood: currentMood!, notes: currentNotes };
+        }
+    } else if (currentMood !== null || currentNotes !== "") { // Only add if there's a mood or notes
+        MOCK_MOOD_ENTRIES.push(newMoodEntry as MoodEntry);
+    }
     
-    // In a real app, you'd persist newMoodEntry and med statuses
     toast({ title: "Status Updated", description: "Your changes have been automatically updated." });
     try {
       await triggerPhilMessage("STATUS_SAVED_POPUP", `Updated log for ${currentDisplayDate}`);
@@ -73,17 +95,25 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   useEffect(() => {
     if (isOpen) {
       const dateToUse = targetDate || new Date();
+      const dateISO = getDateISO(dateToUse);
       const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
       const formattedDate = new Intl.DateTimeFormat('en-US', options).format(dateToUse);
       setCurrentDisplayDate(formattedDate);
 
       const dayStr = dateToUse.toLocaleDateString('en-US', { weekday: 'short' });
+      
+      // Load persisted statuses for the day
+      const dailyStatuses = MOCK_DAILY_MED_STATUSES[dateISO] || {};
+
       const remindersForDate = MOCK_REMINDERS.filter(r =>
           r.isEnabled && (r.days.includes("Daily") || r.days.includes(dayStr))
       ).map(reminder => {
           const medDetails = MOCK_MEDICATIONS.find(m => m.id === reminder.medicationId);
-          // TODO: Persist status from a real data source or keep it in component state for demo
-          return { ...reminder, medicationDetails: medDetails, status: undefined };
+          return { 
+            ...reminder, 
+            medicationDetails: medDetails, 
+            status: dailyStatuses[reminder.id] // Apply persisted status
+          };
       }).sort((a, b) => {
         const timeA = parseInt(a.time.replace(':', ''), 10);
         const timeB = parseInt(b.time.replace(':', ''), 10);
@@ -91,8 +121,11 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
       });
 
       setMedicationsForDay(remindersForDate);
-      setSelectedMood(null); // Reset mood
-      setNotes(""); // Reset notes
+
+      // Load persisted mood and notes
+      const todaysMoodEntry = MOCK_MOOD_ENTRIES.find(entry => entry.date === dateISO);
+      setSelectedMood(todaysMoodEntry?.mood || null); 
+      setNotes(todaysMoodEntry?.notes || ""); 
     }
   }, [isOpen, targetDate]);
 
@@ -146,15 +179,14 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
     const allTakenInSection = meds.length > 0 && meds.every(med => med.status === 'taken');
     const buttonText = allTakenInSection ? `Unmark All ${title}` : `Mark All ${title} as Taken`;
+    const accordionBgClass = 
+        meds.length === 0 ? "bg-muted border-muted-foreground/20" :
+        allTakenInSection ? "bg-green-500/10 border-green-500/30" : "bg-primary/10 border-primary/20";
 
     return (
         <AccordionItem
             value={sectionKey}
-            className={cn(
-                "border-b-0 border rounded-lg mb-3 p-1",
-                meds.length === 0 ? "bg-muted border-muted-foreground/20" :
-                allTakenInSection ? "bg-green-500/10 border-green-500/30" : "bg-primary/10 border-primary/20"
-            )}
+            className={cn("border-b-0 border rounded-lg mb-3 p-1", accordionBgClass)}
         >
              <AccordionTrigger
                 className="text-md font-semibold text-foreground hover:no-underline py-3 px-3"
@@ -250,13 +282,13 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                   className={cn(
                     'flex-1 min-w-[70px] sm:min-w-[80px] py-2 h-auto flex-col gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md', 
                     selectedMood === value
-                      ? 'bg-accent text-accent-foreground hover:bg-accent/90' // Green when selected
-                      : 'text-foreground border border-input bg-background hover:bg-accent hover:text-accent-foreground' // Outline style when not selected
+                      ? 'bg-accent text-accent-foreground hover:bg-accent/90'
+                      : 'text-foreground border border-input bg-background hover:bg-accent hover:text-accent-foreground'
                   )}
                 >
                   <Icon className={cn(
-                      'w-7 h-7 sm:w-8 sm:h-8 mb-0.5', // Slightly larger icons
-                      selectedMood === value ? 'text-accent-foreground' : 'text-foreground' // Icon color matches button state
+                      'w-7 h-7 sm:w-8 sm:h-8 mb-0.5',
+                      selectedMood === value ? 'text-accent-foreground' : 'text-foreground'
                     )}
                   />
                   <span className="text-xs">{label}</span>

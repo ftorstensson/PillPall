@@ -36,6 +36,10 @@ export const MOCK_REMINDERS: Reminder[] = [
   { id: 'r4', medicationId: '3', medicationName: 'Vitamin D3', time: '08:30', days: ['Mon', 'Wed', 'Fri'], isEnabled: false },
 ];
 
+// Stores { [dateISO: string]: { [reminderId: string]: 'taken' | undefined } }
+export const MOCK_DAILY_MED_STATUSES: { [dateISO: string]: { [reminderId: string]: 'taken' | undefined } } = {};
+
+
 export const MOCK_MOOD_ENTRIES: MoodEntry[] = [
   { id: 'm1', date: new Date(Date.now() - 2 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], mood: 'good', notes: 'Felt energetic.' },
   { id: 'm2', date: new Date(Date.now() - 1 * 24 * 60 * 60 * 1000).toISOString().split('T')[0], mood: 'okay', notes: 'A bit tired.' },
