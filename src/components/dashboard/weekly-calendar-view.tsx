@@ -20,7 +20,6 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
   }, []); // Empty dependency array ensures this runs once on mount
 
   // Values derived from currentDate
-  // Ensure these handle `currentDate` being null initially for server/initial-client render consistency
   const currentDayOfWeekJS = currentDate ? currentDate.getDay() : -1; // Sunday is 0, Monday is 1, ..., Saturday is 6
   const todayDayOfWeekMon0 = currentDate ? ((currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1) : -1; // Adjust so Monday is 0, ..., Sunday is 6
 
@@ -38,10 +37,13 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
             const dayIndex = index; // 0 for Monday, ..., 6 for Sunday
 
             let shortDayStr = "";
-            let isTodayClient = false;
             let medicationCount = 0;
+            let dayCardBgClass = "bg-primary/20"; // Default background
 
             if (currentDate && todayDayOfWeekMon0 !== -1) {
+              const todayDateOnly = new Date(currentDate);
+              todayDateOnly.setHours(0, 0, 0, 0);
+
               const dateForThisDayCard = new Date(currentDate);
               const dayDifference = dayIndex - todayDayOfWeekMon0;
               dateForThisDayCard.setDate(currentDate.getDate() + dayDifference);
@@ -53,15 +55,22 @@ export function WeeklyCalendarView({ onDayClick }: WeeklyCalendarViewProps) {
                   r.isEnabled && (r.days.includes("Daily") || r.days.includes(shortDayStr))
               );
               medicationCount = medsForThisDay.length;
-              isTodayClient = currentDate.toDateString() === dateForThisDayCard.toDateString();
+              
+              // Determine background color based on whether the day is past, today, or future
+              if (dateForThisDayCard > todayDateOnly) {
+                dayCardBgClass = "bg-primary/10"; // Lighter blue for future days
+              } else {
+                dayCardBgClass = "bg-primary/20"; // Standard light blue for past and today
+              }
             }
 
             return (
               <Card
                 key={day}
                 className={cn(
-                  "p-3 bg-primary/20 cursor-pointer hover:bg-primary/30 transition-colors",
-                  isTodayClient && "ring-2 ring-black ring-offset-2 ring-offset-primary/30", // Updated for thicker black outline for today
+                  "p-3 cursor-pointer hover:bg-primary/30 transition-colors",
+                  dayCardBgClass // Apply dynamic background class
+                  // Outline for "today" has been removed.
                 )}
                 onClick={() => onDayClick(index)}
               >
