@@ -16,7 +16,7 @@ import { Textarea } from "@/components/ui/textarea";
 import { Card, CardContent, CardDescription, CardHeader, CardTitle } from "@/components/ui/card";
 import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS } from "@/lib/constants";
 import type { Mood, MoodEntry, Medication, Reminder } from "@/lib/types";
-import { CheckCircle, XCircle, Smile, MessageCircle, Save, ChevronDown, ChevronUp } from "lucide-react";
+import { CheckCircle, XCircle, Smile, MessageCircle, Save } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
@@ -49,12 +49,8 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
   const [medicationsForDay, setMedicationsForDay] = useState<MedicationToTake[]>([]);
-  const [openSections, setOpenSections] = useState<Record<string, boolean>>({
-    morning: true,
-    lunch: true,
-    dinner: true,
-    night: true,
-  });
+  
+  const defaultOpenAccordionItems = ['morning', 'lunch', 'dinner', 'night'];
 
   useEffect(() => {
     if (isOpen) {
@@ -77,8 +73,6 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
       setMedicationsForDay(remindersForDate);
       setSelectedMood(null);
       setNotes("");
-      // Reset open sections, or determine dynamically based on content
-      setOpenSections({ morning: true, lunch: true, dinner: true, night: true });
     }
   }, [isOpen, targetDate]);
 
@@ -122,78 +116,57 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
     }
     onOpenChange(false);
   };
-
-  const toggleSection = (section: 'morning' | 'lunch' | 'dinner' | 'night') => {
-    setOpenSections(prev => ({ ...prev, [section]: !prev[section] }));
-  };
   
   const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
-    if (meds.length === 0 && !['morning', 'lunch', 'dinner', 'night'].includes(sectionKey)) { // Only hide if not a time-based section
-        return null;
-    }
-
     return (
         <AccordionItem value={sectionKey} className="border-b-0">
              <AccordionTrigger 
-                onClick={(e) => { e.preventDefault(); toggleSection(sectionKey);}} 
                 className="text-md font-semibold text-foreground hover:no-underline py-3 px-1"
             >
-                <div className="flex justify-between items-center w-full">
-                    <span>{title} ({meds.length})</span>
-                    {openSections[sectionKey] ? <ChevronUp className="h-5 w-5" /> : <ChevronDown className="h-5 w-5" />}
-                </div>
+                {title} ({meds.length})
             </AccordionTrigger>
-            {openSections[sectionKey] && (
-                <AccordionContent className="pt-0 pb-2 px-1">
-                     {meds.length > 0 ? (
-                        <div className="flex flex-col space-y-3 pt-2">
-                            {meds.map((med) => (
-                            <Card key={med.id} className={`p-3 border rounded-lg ${med.status === 'taken' ? 'border-green-500 bg-green-500/10' : med.status === 'skipped' ? 'border-red-500 bg-red-500/10' : 'bg-card'}`}>
-                                <div className="flex items-center justify-between">
-                                <div className="flex items-center gap-3">
-                                    {med.medicationDetails?.imageUrl && (
-                                    <Image
-                                        src={med.medicationDetails.imageUrl}
-                                        alt={med.medicationDetails.name}
-                                        width={40}
-                                        height={40}
-                                        className="rounded-md object-cover"
-                                        data-ai-hint={med.medicationDetails.dataAiHint || "pill"}
-                                    />
-                                    )}
-                                    <div>
-                                    <p className="font-medium">{med.medicationDetails?.name || med.medicationName}</p>
-                                    <p className="text-sm text-muted-foreground">{med.medicationDetails?.dosage} - {med.time}</p>
-                                    </div>
+            <AccordionContent className="pt-0 pb-2 px-1">
+                 {meds.length > 0 ? (
+                    <div className="flex flex-col space-y-3 pt-2">
+                        {meds.map((med) => (
+                        <Card key={med.id} className={`p-3 border rounded-lg ${med.status === 'taken' ? 'border-green-500 bg-green-500/10' : med.status === 'skipped' ? 'border-red-500 bg-red-500/10' : 'bg-card'}`}>
+                            <div className="flex items-center justify-between">
+                            <div className="flex items-center gap-3">
+                                {med.medicationDetails?.imageUrl && (
+                                <Image
+                                    src={med.medicationDetails.imageUrl}
+                                    alt={med.medicationDetails.name}
+                                    width={40}
+                                    height={40}
+                                    className="rounded-md object-cover"
+                                    data-ai-hint={med.medicationDetails.dataAiHint || "pill"}
+                                />
+                                )}
+                                <div>
+                                <p className="font-medium">{med.medicationDetails?.name || med.medicationName}</p>
+                                <p className="text-sm text-muted-foreground">{med.medicationDetails?.dosage} - {med.time}</p>
                                 </div>
-                                <div className="flex gap-2">
-                                    <Button
-                                    variant={med.status === 'taken' ? "default" : "outline"}
-                                    size="sm"
-                                    onClick={() => handleMedicationStatus(med.id, 'taken')}
-                                    className={med.status === 'taken' ? "bg-green-600 hover:bg-green-700 text-white" : ""}
-                                    disabled={med.status === 'skipped'}
-                                    >
-                                    <CheckCircle className="w-4 h-4 mr-1" /> Taken
-                                    </Button>
-                                    <Button
-                                    variant={med.status === 'skipped' ? "destructive" : "outline"}
-                                    size="sm"
-                                    onClick={() => handleMedicationStatus(med.id, 'skipped')}
-                                    disabled={med.status === 'taken'}
-                                    >
-                                    <XCircle className="w-4 h-4 mr-1" /> Skip
-                                    </Button>
-                                </div>
-                                </div>
-                            </Card>
-                            ))}
-                        </div>
-                     ) : (
-                         <p className="text-sm text-muted-foreground pt-2">No medications scheduled for {sectionKey}.</p>
-                     )}
-                </AccordionContent>
-            )}
+                            </div>
+                            <div className="flex gap-2">
+                                <Button
+                                variant={med.status === 'taken' ? "default" : "outline"}
+                                size="sm"
+                                onClick={() => handleMedicationStatus(med.id, 'taken')}
+                                className={med.status === 'taken' ? "bg-green-600 hover:bg-green-700 text-white" : ""}
+                                disabled={med.status === 'skipped'}
+                                >
+                                <CheckCircle className="w-4 h-4 mr-1" /> Taken
+                                </Button>
+                                {/* Skip button removed as per request */}
+                            </div>
+                            </div>
+                        </Card>
+                        ))}
+                    </div>
+                 ) : (
+                     <p className="text-sm text-muted-foreground pt-2">No medications scheduled for {sectionKey}.</p>
+                 )}
+            </AccordionContent>
         </AccordionItem>
     );
   };
@@ -212,7 +185,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
         <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto px-1">
           <section>
             <h3 className="text-md font-semibold mb-1 text-foreground">Your Medications Today</h3>
-            <Accordion type="multiple" className="w-full space-y-1" defaultValue={Object.keys(openSections).filter(key => openSections[key as keyof typeof openSections])}>
+            <Accordion type="multiple" className="w-full space-y-1" defaultValue={defaultOpenAccordionItems}>
                 {medicationSection("Morning", categorizedMeds.morning, 'morning')}
                 {medicationSection("Lunch", categorizedMeds.lunch, 'lunch')}
                 {medicationSection("Dinner", categorizedMeds.dinner, 'dinner')}
