@@ -54,14 +54,14 @@ export function SupportBotSection() {
             rows={3}
             className="border-border focus:ring-primary bg-yellow-100 pr-24" // Added pr-24 for button space
           />
-          <Button 
-            onClick={handleSubmitQuery} 
-            disabled={isLoading} 
-            size="sm"
-            className="absolute bottom-2 right-2 bg-black text-white hover:bg-gray-800"
+          <button
+            onClick={handleSubmitQuery}
+            disabled={isLoading}
+            type="button" // Added type="button" for semantic correctness
+            className="absolute bottom-3 right-3 text-sm text-primary hover:underline disabled:text-muted-foreground disabled:no-underline disabled:cursor-not-allowed focus:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-sm"
           >
             {isLoading ? "Thinking..." : "Ask Phil"}
-          </Button>
+          </button>
         </div>
         {response && (
           <div className="p-3 mt-4 border rounded-md bg-yellow-100 text-foreground">
