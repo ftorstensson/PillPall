@@ -49,7 +49,8 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const { toast } = useToast();
   const [medicationsForDay, setMedicationsForDay] = useState<MedicationToTake[]>([]);
   
-  const defaultOpenAccordionItems = ['morning', 'lunch', 'dinner', 'night'];
+  // Accordions will be closed by default by removing defaultValue or setting it to []
+  // const defaultOpenAccordionItems = ['morning', 'lunch', 'dinner', 'night'];
 
   useEffect(() => {
     if (isOpen) {
@@ -97,7 +98,6 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
 
     setMedicationsForDay(prevMeds =>
         prevMeds.map(med =>
-            // Mark as taken if it's in the section, and not already skipped (optional: or allow overriding skipped)
             medIdsInSection.includes(med.id) ? { ...med, status: 'taken' } : med
         )
     );
@@ -126,7 +126,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   
   const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
     const allTakenInSection = meds.length > 0 && meds.every(med => med.status === 'taken');
-    const anySkippedInSection = meds.some(med => med.status === 'skipped'); // To potentially disable "Mark All Taken" if needed
+    const anySkippedInSection = meds.some(med => med.status === 'skipped');
 
     return (
         <AccordionItem value={sectionKey} className="border-b-0 bg-primary/10 border border-primary/20 rounded-lg mb-3 p-1">
@@ -152,8 +152,10 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                                 />
                                 )}
                                 <div className="flex-grow">
-                                    <p className="font-medium text-sm">{med.medicationDetails?.name || med.medicationName}</p>
-                                    <p className="text-xs text-muted-foreground">{med.medicationDetails?.dosage} - {med.time}</p>
+                                    <p className="font-medium text-sm">
+                                        {med.medicationDetails?.name || med.medicationName}
+                                        {med.medicationDetails?.dosage && <span className="font-normal text-xs text-muted-foreground ml-2">{med.medicationDetails.dosage}</span>}
+                                    </p>
                                 </div>
                                 {med.status === 'taken' && <CheckCircle className="w-5 h-5 text-green-600" />}
                             </li>
@@ -164,7 +166,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                             size="sm"
                             onClick={() => handleMarkSectionAsTaken(sectionKey)}
                             className={`w-full ${allTakenInSection ? "border-green-600 text-green-600 hover:bg-green-500/10" : "bg-green-600 hover:bg-green-700 text-white"}`}
-                            disabled={allTakenInSection || anySkippedInSection} // Optionally disable if any are skipped and you don't want to override
+                            disabled={allTakenInSection || anySkippedInSection}
                         >
                             <CheckCircle className="w-4 h-4 mr-2" /> 
                             {allTakenInSection ? "All Taken" : `Mark All ${title} as Taken`}
@@ -192,7 +194,8 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
         <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto px-1">
           <section>
             <h3 className="text-md font-semibold mb-2 text-foreground">Your Medications Today</h3>
-            <Accordion type="multiple" className="w-full space-y-1" defaultValue={defaultOpenAccordionItems}>
+            {/* Removed defaultValue to make accordions closed by default */}
+            <Accordion type="multiple" className="w-full space-y-1">
                 {medicationSection("Morning", categorizedMeds.morning, 'morning')}
                 {medicationSection("Lunch", categorizedMeds.lunch, 'lunch')}
                 {medicationSection("Dinner", categorizedMeds.dinner, 'dinner')}
