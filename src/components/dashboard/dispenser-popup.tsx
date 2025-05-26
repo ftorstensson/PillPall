@@ -23,6 +23,7 @@ import { useToast } from "@/hooks/use-toast";
 interface DispenserPopupProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
+  targetDate?: Date; // New prop
 }
 
 interface MedicationToTake extends Reminder {
@@ -30,47 +31,56 @@ interface MedicationToTake extends Reminder {
     status?: 'taken' | 'skipped';
 }
 
-export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
-  const [currentDate, setCurrentDate] = useState("");
+export function DispenserPopup({ isOpen, onOpenChange, targetDate }: DispenserPopupProps) {
+  const [currentDisplayDate, setCurrentDisplayDate] = useState("");
   const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
   const [notes, setNotes] = useState("");
   const { toast } = useToast();
-  const [medicationsForToday, setMedicationsForToday] = useState<MedicationToTake[]>([]);
+  const [medicationsForDay, setMedicationsForDay] = useState<MedicationToTake[]>([]);
 
 
   useEffect(() => {
-    const date = new Date();
-    const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-    setCurrentDate(new Intl.DateTimeFormat('en-US', options).format(date));
+    if (isOpen) {
+      const dateToUse = targetDate || new Date(); // Use targetDate if provided, else today
+      
+      const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
+      setCurrentDisplayDate(new Intl.DateTimeFormat('en-US', options).format(dateToUse));
 
-    // Filter reminders for today and find corresponding medication details
-    const todayStr = date.toLocaleDateString('en-US', { weekday: 'short' });
-    const todaysReminders = MOCK_REMINDERS.filter(r => 
-        r.isEnabled && (r.days.includes("Daily") || r.days.includes(todayStr))
-    ).map(reminder => {
-        const medDetails = MOCK_MEDICATIONS.find(m => m.id === reminder.medicationId);
-        return { ...reminder, medicationDetails: medDetails };
-    }).sort((a, b) => a.time.localeCompare(b.time));
-    setMedicationsForToday(todaysReminders);
-
-  }, [isOpen]); // Re-calculate when popup opens
+      // Filter reminders for the dateToUse and find corresponding medication details
+      const dayStr = dateToUse.toLocaleDateString('en-US', { weekday: 'short' });
+      const remindersForDate = MOCK_REMINDERS.filter(r => 
+          r.isEnabled && (r.days.includes("Daily") || r.days.includes(dayStr))
+      ).map(reminder => {
+          const medDetails = MOCK_MEDICATIONS.find(m => m.id === reminder.medicationId);
+          // Ensure a new status object is created for each opening or date change if not persisted
+          return { ...reminder, medicationDetails: medDetails, status: undefined }; 
+      }).sort((a, b) => a.time.localeCompare(b.time));
+      
+      setMedicationsForDay(remindersForDate);
+      setSelectedMood(null); // Reset mood on open/date change
+      setNotes(""); // Reset notes on open/date change
+    }
+  }, [isOpen, targetDate]);
 
   const handleMedicationStatus = (id: string, status: 'taken' | 'skipped') => {
-    setMedicationsForToday(prevMeds => prevMeds.map(med => med.id === id ? {...med, status} : med));
+    setMedicationsForDay(prevMeds => prevMeds.map(med => med.id === id ? {...med, status} : med));
   };
 
   const handleSaveStatus = () => {
     // In a real app, save medication status and mood entry to backend
-    console.log("Medication Statuses:", medicationsForToday.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
+    // Ensure to use the date associated with `currentDisplayDate` (derived from `targetDate` or `new Date()`)
+    const dateForEntry = (targetDate || new Date()).toISOString().split('T')[0];
+
+    console.log("Medication Statuses for", dateForEntry, ":", medicationsForDay.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
     if (selectedMood) {
       const newMoodEntry: MoodEntry = {
         id: String(Date.now()),
-        date: new Date().toISOString().split('T')[0],
+        date: dateForEntry,
         mood: selectedMood,
         notes: notes,
       };
-      console.log("Mood Entry:", newMoodEntry);
-      // MOCK_MOOD_ENTRIES.push(newMoodEntry); // Mock save if needed
+      console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
+      // MOCK_MOOD_ENTRIES.push(newMoodEntry); // Mock save if needed, consider updating based on date
     }
     toast({ title: "Status Saved", description: "Your medication and mood status has been recorded." });
     onOpenChange(false); // Close dialog
@@ -80,7 +90,7 @@ export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
       <DialogContent className="sm:max-w-lg">
         <DialogHeader>
-          <DialogTitle className="text-lg font-semibold">{currentDate}</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">{currentDisplayDate}</DialogTitle>
           <DialogDescription>
             Manage your medications and track how you&apos;re feeling.
           </DialogDescription>
@@ -89,9 +99,9 @@ export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
         <div className="py-4 space-y-6 max-h-[60vh] overflow-y-auto px-1">
           <section>
             <h3 className="text-md font-semibold mb-3 text-foreground">Your Medications</h3>
-            {medicationsForToday.length > 0 ? (
+            {medicationsForDay.length > 0 ? (
               <div className="flex flex-col space-y-3">
-                {medicationsForToday.map((med) => (
+                {medicationsForDay.map((med) => (
                   <Card key={med.id} className={`p-3 border rounded-lg ${med.status === 'taken' ? 'border-green-500 bg-green-500/10' : med.status === 'skipped' ? 'border-red-500 bg-red-500/10' : 'bg-card'}`}>
                     <div className="flex items-center justify-between">
                       <div className="flex items-center gap-3">
@@ -134,12 +144,12 @@ export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
                 ))}
               </div>
             ) : (
-              <p className="text-sm text-muted-foreground">No medications scheduled for today.</p>
+              <p className="text-sm text-muted-foreground">No medications scheduled for this day.</p>
             )}
           </section>
 
           <section>
-            <h3 className="text-md font-semibold mb-3 text-foreground">How Are You Feeling Today?</h3>
+            <h3 className="text-md font-semibold mb-3 text-foreground">How Are You Feeling?</h3>
             <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-3">
               {MOOD_OPTIONS.map(({ value, label, icon: Icon }) => (
                 <Button
@@ -154,7 +164,7 @@ export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
               ))}
             </div>
             <Textarea
-              placeholder="Had a good day overall... (Optional notes)"
+              placeholder="Any notes about your mood or day? (Optional)"
               value={notes}
               onChange={(e) => setNotes(e.target.value)}
               rows={3}

@@ -5,7 +5,7 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Pill, RotateCcw } from "lucide-react"; // Changed Share2 to RotateCcw for ReFillPal
+import { Pill, RotateCcw } from "lucide-react"; 
 import { DispenserPopup } from "@/components/dashboard/dispenser-popup";
 import { SupportBotSection } from "@/components/dashboard/support-bot-section";
 import { WeeklyCalendarView } from "@/components/dashboard/weekly-calendar-view";
@@ -19,8 +19,9 @@ import { Card, CardContent, CardHeader, CardTitle } from "@/components/ui/card";
 
 export default function HomePage() {
   const [dispenserPopupOpen, setDispenserPopupOpen] = useState(false);
+  const [selectedDateForPopup, setSelectedDateForPopup] = useState<Date | null>(null);
   const { toast } = useToast();
-  const [pageTitle, setPageTitle] = useState("PillPal"); // Default title
+  const [pageTitle, setPageTitle] = useState("PillPal"); 
   const [currentDate, setCurrentDate] = useState('');
 
   useEffect(() => {
@@ -28,16 +29,34 @@ export default function HomePage() {
     const options: Intl.DateTimeFormatOptions = { weekday: 'short', day: 'numeric', month: 'long', year: 'numeric' };
     const formattedDate = new Intl.DateTimeFormat('en-US', options).format(date);
     setCurrentDate(formattedDate);
-    // Update page title dynamically if needed, or keep static as "PillPal"
-    // setPageTitle(`PillPal - ${formattedDate}`);
   }, []);
 
+  const handleOpenReFillPal = () => {
+    setSelectedDateForPopup(new Date()); // Set to today for the generic ReFillPal button
+    setDispenserPopupOpen(true);
+  };
+
+  const handleCalendarDayClick = (dayIndex: number) => { // dayIndex: 0 for Mon, ..., 6 for Sun
+    const today = new Date();
+    const currentDayOfWeekJS = today.getDay(); // 0 for Sun, 1 for Mon, ..., 6 for Sat
+    
+    // Adjust today's day to be Mon=0, ..., Sun=6 to match dayIndex
+    const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
+    
+    const dayDifference = dayIndex - todayDayOfWeekMon0;
+    
+    const calculatedDate = new Date(today);
+    calculatedDate.setDate(today.getDate() + dayDifference);
+    
+    setSelectedDateForPopup(calculatedDate);
+    setDispenserPopupOpen(true);
+  };
 
   const headerActions = (
     <Button
       variant="outline"
       className="border-black text-black bg-white hover:bg-gray-100 hover:text-black focus:ring-black"
-      onClick={() => setDispenserPopupOpen(true)}
+      onClick={handleOpenReFillPal}
     >
       <RotateCcw className="w-4 h-4 mr-2" />
       ReFillPal
@@ -46,11 +65,15 @@ export default function HomePage() {
 
   return (
     <MainLayout pageTitle={pageTitle} headerActions={headerActions} showDate={true}>
-      <DispenserPopup isOpen={dispenserPopupOpen} onOpenChange={setDispenserPopupOpen} />
+      <DispenserPopup 
+        isOpen={dispenserPopupOpen} 
+        onOpenChange={setDispenserPopupOpen} 
+        targetDate={selectedDateForPopup || undefined} // Pass the selected date
+      />
       
       <div className="max-w-2xl mx-auto space-y-6">
         <SupportBotSection />
-        <WeeklyCalendarView />
+        <WeeklyCalendarView onDayClick={handleCalendarDayClick} />
 
         <Accordion type="single" collapsible className="w-full">
           <AccordionItem value="mood">
@@ -60,7 +83,6 @@ export default function HomePage() {
                 <CardContent className="pt-6">
                   <p className="text-sm text-muted-foreground">
                     Track and view your mood patterns over time. Your logged moods will appear here.
-                    {/* Placeholder for mood chart or summary */}
                   </p>
                 </CardContent>
               </Card>
@@ -73,7 +95,6 @@ export default function HomePage() {
                 <CardContent className="pt-6">
                   <p className="text-sm text-muted-foreground">
                     Maintain your medication adherence streak! Your progress will be shown here.
-                    {/* Placeholder for streak information */}
                   </p>
                 </CardContent>
               </Card>
