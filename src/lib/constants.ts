@@ -1,5 +1,6 @@
+
 import type { NavItem, StoreItem, Medication, Reminder, MoodEntry, Helper, UserProfile } from './types';
-import { LayoutDashboard, Pill, Bell, Smile, Users, Bot, Store as StoreIcon, Settings as SettingsIcon, MessageCircle, CalendarDays, Thermometer, HeartPulse, Home } from 'lucide-react';
+import { LayoutDashboard, Pill, Bell, Users, Bot, Store as StoreIcon, Settings as SettingsIcon, CalendarDays, Thermometer, HeartPulse, Home, Smile, SmilePlus, Meh, Frown, Angry } from 'lucide-react'; // Added SmilePlus, Meh, Frown, Angry
 
 export const APP_NAME = "PillPal"; // Updated from PillWise
 
@@ -12,9 +13,6 @@ export const NAV_ITEMS: NavItem[] = [
   { title: 'PillPal AI', href: '/assistant', icon: Bot }, // Updated from PillWise AI
   { title: 'Store', href: '/store', icon: StoreIcon },
   { title: 'Settings', href: '/settings', icon: SettingsIcon },
-  // Added Family Sharing explicitly if it's a main page, wireframe only shows in dropdown
-  // If 'Helpers' is meant to be 'Family Sharing', adjust accordingly.
-  // For now, let's assume 'Helpers' covers 'Family Sharing' for the main nav.
 ];
 
 export const MOCK_USER_PROFILE: UserProfile = {
@@ -57,11 +55,11 @@ export const MOCK_STORE_ITEMS: StoreItem[] = [
 ];
 
 export const MOOD_OPTIONS: { value: MoodEntry['mood']; label: string; icon: React.ElementType }[] = [
-    { value: 'great', label: 'Great', icon: Smile },
-    { value: 'good', label: 'Good', icon: Smile }, // Using Smile for 'good' as well, or use a different happy face
-    { value: 'okay', label: 'Okay', icon: MessageCircle }, // MessageCircle is a neutral face, suitable for 'okay'
-    { value: 'bad', label: 'Bad', icon: MessageCircle }, // Consider specific sad face icons if available e.g. Frown
-    { value: 'terrible', label: 'Terrible', icon: MessageCircle }, // Consider specific very sad face icons
+    { value: 'great', label: 'Great', icon: SmilePlus },
+    { value: 'good', label: 'Good', icon: Smile },
+    { value: 'okay', label: 'Okay', icon: Meh },
+    { value: 'bad', label: 'Bad', icon: Frown },
+    { value: 'terrible', label: 'Terrible', icon: Angry },
   ];
 
 export const DAYS_OF_WEEK = ["Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday", "Sunday"];

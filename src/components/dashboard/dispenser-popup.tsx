@@ -1,25 +1,23 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo } from "react";
+import React, { useState, useEffect, useMemo, useCallback } from "react";
 import {
   Dialog,
   DialogContent,
   DialogHeader,
   DialogTitle,
   DialogDescription,
-  DialogFooter,
-  DialogClose
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
 import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS } from "@/lib/constants";
 import type { Mood, MoodEntry, Medication, Reminder } from "@/lib/types";
-import { CheckCircle, Smile, Save } from "lucide-react";
+import { CheckCircle } from "lucide-react";
 import Image from "next/image";
 import { useToast } from "@/hooks/use-toast";
 import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
-
+import { cn } from "@/lib/utils";
 
 interface DispenserPopupProps {
   isOpen: boolean;
@@ -36,10 +34,10 @@ interface MedicationToTake extends Reminder {
 const getTimeCategory = (time: string): 'morning' | 'lunch' | 'dinner' | 'night' => {
   const [hourStr] = time.split(':');
   const hour = parseInt(hourStr, 10);
-  if (hour >= 5 && hour < 12) return 'morning'; // 5:00 AM - 11:59 AM
-  if (hour >= 12 && hour < 17) return 'lunch';  // 12:00 PM - 4:59 PM
-  if (hour >= 17 && hour < 21) return 'dinner'; // 5:00 PM - 8:59 PM
-  return 'night'; // 9:00 PM - 4:59 AM
+  if (hour >= 5 && hour < 12) return 'morning';
+  if (hour >= 12 && hour < 17) return 'lunch';
+  if (hour >= 17 && hour < 21) return 'dinner';
+  return 'night';
 };
 
 export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMessage }: DispenserPopupProps) {
@@ -49,21 +47,43 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const { toast } = useToast();
   const [medicationsForDay, setMedicationsForDay] = useState<MedicationToTake[]>([]);
   
-  // Accordions will be closed by default by removing defaultValue or setting it to []
-  // const defaultOpenAccordionItems = ['morning', 'lunch', 'dinner', 'night'];
+  const saveCurrentState = useCallback(async (currentMeds: MedicationToTake[], currentMood: Mood | null, currentNotes: string) => {
+    const dateForEntry = (targetDate || new Date()).toISOString().split('T')[0];
+    console.log("Medication Statuses for", dateForEntry, ":", currentMeds.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
+    if (currentMood) {
+      const newMoodEntry: MoodEntry = {
+        id: String(Date.now()), // Mock ID
+        date: dateForEntry,
+        mood: currentMood,
+        notes: currentNotes,
+      };
+      console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
+      // In a real app, you'd persist newMoodEntry and med statuses
+    } else {
+      console.log("No mood selected for", dateForEntry);
+    }
+    toast({ title: "Status Updated", description: "Your changes have been automatically updated." });
+    try {
+      await triggerPhilMessage("STATUS_SAVED_POPUP", `Updated log for ${currentDisplayDate}`);
+    } catch (error) {
+      console.error("Failed to trigger Phil's message from popup:", error);
+    }
+  }, [targetDate, triggerPhilMessage, currentDisplayDate]);
+
 
   useEffect(() => {
     if (isOpen) {
       const dateToUse = targetDate || new Date();
       const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-      setCurrentDisplayDate(new Intl.DateTimeFormat('en-US', options).format(dateToUse));
+      const formattedDate = new Intl.DateTimeFormat('en-US', options).format(dateToUse);
+      setCurrentDisplayDate(formattedDate);
 
       const dayStr = dateToUse.toLocaleDateString('en-US', { weekday: 'short' });
       const remindersForDate = MOCK_REMINDERS.filter(r =>
           r.isEnabled && (r.days.includes("Daily") || r.days.includes(dayStr))
       ).map(reminder => {
           const medDetails = MOCK_MEDICATIONS.find(m => m.id === reminder.medicationId);
-          return { ...reminder, medicationDetails: medDetails, status: undefined };
+          return { ...reminder, medicationDetails: medDetails, status: undefined }; // Default status to undefined
       }).sort((a, b) => {
         const timeA = parseInt(a.time.replace(':', ''), 10);
         const timeB = parseInt(b.time.replace(':', ''), 10);
@@ -96,40 +116,39 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
     const medsInSection = categorizedMeds[sectionKey];
     const medIdsInSection = medsInSection.map(med => med.id);
 
-    setMedicationsForDay(prevMeds =>
-        prevMeds.map(med =>
-            medIdsInSection.includes(med.id) ? { ...med, status: 'taken' } : med
-        )
+    const newMeds = medicationsForDay.map(med =>
+        medIdsInSection.includes(med.id) ? { ...med, status: 'taken' } : med
     );
-  };
-
-  const handleSaveStatus = async () => {
-    const dateForEntry = (targetDate || new Date()).toISOString().split('T')[0];
-    console.log("Medication Statuses for", dateForEntry, ":", medicationsForDay.map(m => ({id: m.id, name: m.medicationName, status: m.status})));
-    if (selectedMood) {
-      const newMoodEntry: MoodEntry = {
-        id: String(Date.now()),
-        date: dateForEntry,
-        mood: selectedMood,
-        notes: notes,
-      };
-      console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
-    }
-    toast({ title: "Status Saved", description: "Your medication and mood status has been recorded." });
-    try {
-      await triggerPhilMessage("STATUS_SAVED_POPUP");
-    } catch (error) {
-      console.error("Failed to trigger Phil's message from popup:", error);
-    }
-    onOpenChange(false);
+    setMedicationsForDay(newMeds);
+    saveCurrentState(newMeds, selectedMood, notes);
   };
   
+  const handleMoodSelect = (moodValue: Mood) => {
+    setSelectedMood(moodValue);
+    saveCurrentState(medicationsForDay, moodValue, notes);
+  };
+
+  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
+    const newNotes = e.target.value;
+    setNotes(newNotes);
+    // For notes, auto-save could be on blur or debounced.
+    // For simplicity, we'll save notes when mood or med status is updated.
+    // Or if a dedicated "save notes" action is preferred, it can be added.
+    // For now, notes state is updated, and saveCurrentState picks it up.
+  };
+
+
   const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
     const allTakenInSection = meds.length > 0 && meds.every(med => med.status === 'taken');
-    const anySkippedInSection = meds.some(med => med.status === 'skipped');
-
+    
     return (
-        <AccordionItem value={sectionKey} className="border-b-0 bg-primary/10 border border-primary/20 rounded-lg mb-3 p-1">
+        <AccordionItem 
+            value={sectionKey} 
+            className={cn(
+                "border-b-0 border rounded-lg mb-3 p-1", 
+                meds.length === 0 ? "bg-muted border-muted-foreground/20" : "bg-primary/10 border-primary/20"
+            )}
+        >
              <AccordionTrigger 
                 className="text-md font-semibold text-foreground hover:no-underline py-3 px-3"
             >
@@ -140,7 +159,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                     <>
                         <ul className="space-y-3 mb-4">
                             {meds.map((med) => (
-                            <li key={med.id} className={`flex items-center gap-3 p-2 rounded-md ${med.status === 'taken' ? 'bg-green-500/20' : med.status === 'skipped' ? 'bg-red-500/20 line-through' : 'bg-background/50'}`}>
+                            <li key={med.id} className={`flex items-center gap-3 p-2 rounded-md ${med.status === 'taken' ? 'bg-green-500/20' : 'bg-background/50'}`}>
                                 {med.medicationDetails?.imageUrl && (
                                 <Image
                                     src={med.medicationDetails.imageUrl}
@@ -152,9 +171,9 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                                 />
                                 )}
                                 <div className="flex-grow">
-                                    <p className="font-medium text-sm">
+                                    <p className="font-medium text-sm text-foreground">
                                         {med.medicationDetails?.name || med.medicationName}
-                                        {med.medicationDetails?.dosage && <span className="font-normal text-xs text-muted-foreground ml-2">{med.medicationDetails.dosage}</span>}
+                                        {med.medicationDetails?.dosage && <span className="font-normal text-xs text-foreground ml-2">{med.medicationDetails.dosage}</span>}
                                     </p>
                                 </div>
                                 {med.status === 'taken' && <CheckCircle className="w-5 h-5 text-green-600" />}
@@ -162,11 +181,15 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                             ))}
                         </ul>
                         <Button
-                            variant={allTakenInSection ? "outline" : "default"}
                             size="sm"
                             onClick={() => handleMarkSectionAsTaken(sectionKey)}
-                            className={`w-full ${allTakenInSection ? "border-green-600 text-green-600 hover:bg-green-500/10" : "bg-green-600 hover:bg-green-700 text-white"}`}
-                            disabled={allTakenInSection || anySkippedInSection}
+                            className={cn(
+                                "w-full text-white",
+                                allTakenInSection 
+                                ? "bg-green-500 hover:bg-green-600 cursor-not-allowed" 
+                                : "bg-green-600 hover:bg-green-700"
+                            )}
+                            disabled={allTakenInSection}
                         >
                             <CheckCircle className="w-4 h-4 mr-2" /> 
                             {allTakenInSection ? "All Taken" : `Mark All ${title} as Taken`}
@@ -194,7 +217,6 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
         <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto px-1">
           <section>
             <h3 className="text-md font-semibold mb-2 text-foreground">Your Medications Today</h3>
-            {/* Removed defaultValue to make accordions closed by default */}
             <Accordion type="multiple" className="w-full space-y-1">
                 {medicationSection("Morning", categorizedMeds.morning, 'morning')}
                 {medicationSection("Lunch", categorizedMeds.lunch, 'lunch')}
@@ -213,7 +235,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
                 <Button
                   key={value}
                   variant={selectedMood === value ? "default" : "outline"}
-                  onClick={() => setSelectedMood(value)}
+                  onClick={() => handleMoodSelect(value)}
                   className={`flex-1 min-w-[70px] sm:min-w-[80px] py-2 h-auto flex-col gap-1 ${selectedMood === value ? 'bg-primary text-primary-foreground' : 'text-foreground'}`}
                 >
                   <Icon className={`w-5 h-5 sm:w-6 sm:h-6 mb-0.5 ${selectedMood === value ? 'text-primary-foreground' : 'text-primary'}`} />
@@ -224,23 +246,12 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
             <Textarea
               placeholder="Any notes about your mood or day? (Optional)"
               value={notes}
-              onChange={(e) => setNotes(e.target.value)}
+              onChange={handleNotesChange}
               rows={3}
             />
           </section>
         </div>
-
-        <DialogFooter className="sm:justify-between pt-4">
-          <DialogClose asChild>
-            <Button type="button" variant="outline">
-              Cancel
-            </Button>
-          </DialogClose>
-          <Button type="button" onClick={handleSaveStatus} className="bg-primary text-primary-foreground">
-            <Save className="w-4 h-4 mr-2" />
-            Save Status
-          </Button>
-        </DialogFooter>
+        {/* DialogFooter removed for auto-save behavior */}
       </DialogContent>
     </Dialog>
   );
