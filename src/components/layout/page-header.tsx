@@ -1,12 +1,12 @@
 
 "use client";
 import React, { useState, useEffect } from 'react';
-import { SidebarTrigger } from "@/components/ui/sidebar";
+// import { SidebarTrigger } from "@/components/ui/sidebar"; // Removed SidebarTrigger
 import { Button } from "@/components/ui/button";
 import { DropdownMenu, DropdownMenuContent, DropdownMenuItem, DropdownMenuLabel, DropdownMenuSeparator, DropdownMenuTrigger } from "@/components/ui/dropdown-menu";
 import { Avatar, AvatarFallback, AvatarImage } from "@/components/ui/avatar";
 import { MOCK_USER_PROFILE } from "@/lib/constants";
-import { LogOut, Users, Settings, Home } from "lucide-react"; // Added Users, Settings, Home
+import { LogOut, Users, Settings, Home } from "lucide-react"; 
 import Link from 'next/link';
 
 interface PageHeaderProps {
@@ -29,7 +29,7 @@ export function PageHeader({ title, children, showDate = false }: PageHeaderProp
   return (
     <header className="sticky top-0 z-10 flex items-center justify-between h-16 px-4 bg-background/80 backdrop-blur-sm border-b">
       <div className="flex items-center gap-2">
-        <SidebarTrigger className="md:hidden" />
+        {/* <SidebarTrigger className="md:hidden" /> Removed SidebarTrigger */}
         <div>
           <h1 className="text-xl font-semibold">{title}</h1>
           {showDate && currentDate && <p className="text-xs text-muted-foreground">{currentDate}</p>}
