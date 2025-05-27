@@ -12,7 +12,7 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS, MOCK_DAILY_MED_STATUSES } from "@/lib/constants";
+import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS, MOCK_DAILY_MED_STATUSES, MOCK_MOOD_ENTRIES } from "@/lib/constants";
 import type { Mood, MoodEntry, Medication, Reminder } from "@/lib/types";
 import { CheckCircle, XIcon } from "lucide-react";
 import Image from "next/image";
