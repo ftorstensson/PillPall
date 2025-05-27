@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useMemo, useCallback } from "react";
+import React, { useState, useEffect, useRef } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,298 +12,148 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import { MOOD_OPTIONS, MOCK_MEDICATIONS, MOCK_REMINDERS, MOCK_DAILY_MED_STATUSES, MOCK_MOOD_ENTRIES } from "@/lib/constants";
-import type { Mood, MoodEntry, Medication, Reminder } from "@/lib/types";
-import { CheckCircle, XIcon } from "lucide-react";
-import Image from "next/image";
-import { useToast } from "@/hooks/use-toast";
-import { Accordion, AccordionContent, AccordionItem, AccordionTrigger } from "@/components/ui/accordion";
+import { XIcon, Send, Bot } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
 import { cn } from "@/lib/utils";
+import { medicationScheduler } from "@/ai/flows/medication-scheduler-flow"; // New flow
 
 interface DispenserPopupProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  targetDate?: Date;
-  triggerPhilMessage: (eventType: string, eventContext?: string) => Promise<void>;
+  // targetDate and triggerPhilMessage are no longer needed for this version
 }
 
-interface MedicationToTake extends Reminder {
-    medicationDetails?: Medication;
-    status?: 'taken' | undefined;
+interface ChatMessage {
+  id: string;
+  sender: "user" | "phil";
+  text: string;
 }
 
-const getTimeCategory = (time: string): 'morning' | 'lunch' | 'dinner' | 'night' => {
-  const [hourStr] = time.split(':');
-  const hour = parseInt(hourStr, 10);
-  if (hour >= 5 && hour < 12) return 'morning';
-  if (hour >= 12 && hour < 17) return 'lunch';
-  if (hour >= 17 && hour < 21) return 'dinner';
-  return 'night';
-};
-
-export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMessage }: DispenserPopupProps) {
-  const [currentDisplayDate, setCurrentDisplayDate] = useState("");
-  const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
-  const [notes, setNotes] = useState("");
-  const { toast } = useToast();
-  const [medicationsForDay, setMedicationsForDay] = useState<MedicationToTake[]>([]);
-
-  const getDateISO = (date: Date): string => date.toISOString().split('T')[0];
-
-  const saveCurrentState = useCallback(async (currentMeds: MedicationToTake[], currentMood: Mood | null, currentNotes: string) => {
-    const dateForEntry = getDateISO(targetDate || new Date());
-    
-    if (!MOCK_DAILY_MED_STATUSES[dateForEntry]) {
-      MOCK_DAILY_MED_STATUSES[dateForEntry] = {};
-    }
-    currentMeds.forEach(med => {
-      MOCK_DAILY_MED_STATUSES[dateForEntry][med.id] = med.status;
-    });
-    console.log("Medication Statuses for", dateForEntry, ":", MOCK_DAILY_MED_STATUSES[dateForEntry]);
-
-    const newMoodEntry: MoodEntry | { date: string, mood: null, notes: string } = {
-      id: String(Date.now()), 
-      date: dateForEntry,
-      mood: currentMood, 
-      notes: currentNotes,
-    };
-    console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
-    
-    const existingMoodIndex = MOCK_MOOD_ENTRIES.findIndex(e => e.date === dateForEntry);
-    if (existingMoodIndex > -1) {
-        if (currentMood === null && currentNotes === "") { 
-            MOCK_MOOD_ENTRIES.splice(existingMoodIndex, 1);
-        } else {
-            MOCK_MOOD_ENTRIES[existingMoodIndex] = { ...MOCK_MOOD_ENTRIES[existingMoodIndex], mood: currentMood!, notes: currentNotes };
-        }
-    } else if (currentMood !== null || currentNotes !== "") { 
-        MOCK_MOOD_ENTRIES.push(newMoodEntry as MoodEntry);
-    }
-    
-    toast({ title: "Status Updated", description: "Your changes have been automatically updated." });
-    try {
-      await triggerPhilMessage("STATUS_SAVED_POPUP", `Updated log for ${currentDisplayDate}`);
-    } catch (error) {
-      console.error("Failed to trigger Phil's message from popup:", error);
-    }
-  }, [targetDate, triggerPhilMessage, currentDisplayDate, toast]);
-
+export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
+  const [userInput, setUserInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
 
   useEffect(() => {
     if (isOpen) {
-      const dateToUse = targetDate || new Date();
-      const dateISO = getDateISO(dateToUse);
-      const options: Intl.DateTimeFormatOptions = { weekday: 'long', day: 'numeric', month: 'long', year: 'numeric' };
-      const formattedDate = new Intl.DateTimeFormat('en-US', options).format(dateToUse);
-      setCurrentDisplayDate(formattedDate);
-
-      const dayStr = dateToUse.toLocaleDateString('en-US', { weekday: 'short' });
-      
-      const dailyStatuses = MOCK_DAILY_MED_STATUSES[dateISO] || {};
-
-      const remindersForDate = MOCK_REMINDERS.filter(r =>
-          r.isEnabled && (r.days.includes("Daily") || r.days.includes(dayStr))
-      ).map(reminder => {
-          const medDetails = MOCK_MEDICATIONS.find(m => m.id === reminder.medicationId);
-          return { 
-            ...reminder, 
-            medicationDetails: medDetails, 
-            status: dailyStatuses[reminder.id] 
-          };
-      }).sort((a, b) => {
-        const timeA = parseInt(a.time.replace(':', ''), 10);
-        const timeB = parseInt(b.time.replace(':', ''), 10);
-        return timeA - timeB;
-      });
-
-      setMedicationsForDay(remindersForDate);
-
-      const todaysMoodEntry = MOCK_MOOD_ENTRIES.find(entry => entry.date === dateISO);
-      setSelectedMood(todaysMoodEntry?.mood || null); 
-      setNotes(todaysMoodEntry?.notes || ""); 
+      // Initialize with Phil's greeting when popup opens
+      setChatMessages([
+        {
+          id: String(Date.now()),
+          sender: "phil",
+          text: "Hello! I'm Phil. Let's set up your weekly medication schedule. Tell me what medications you take, the dosage, what time, and on which days. For example: 'Lisinopril 10mg every morning at 8 AM.'",
+        },
+      ]);
+      setUserInput("");
     }
-  }, [isOpen, targetDate]);
+  }, [isOpen]);
 
-  const categorizedMeds = useMemo(() => {
-    const morning: MedicationToTake[] = [];
-    const lunch: MedicationToTake[] = [];
-    const dinner: MedicationToTake[] = [];
-    const night: MedicationToTake[] = [];
-
-    medicationsForDay.forEach(med => {
-      const category = getTimeCategory(med.time);
-      if (category === 'morning') morning.push(med);
-      else if (category === 'lunch') lunch.push(med);
-      else if (category === 'dinner') dinner.push(med);
-      else night.push(med);
-    });
-    return { morning, lunch, dinner, night };
-  }, [medicationsForDay]);
-
-  const handleMarkSectionAsTaken = (sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
-    const medsInSection = categorizedMeds[sectionKey];
-    if (medsInSection.length === 0) return;
-
-    const medIdsInSection = medsInSection.map(med => med.id);
-    const areAllCurrentlyTaken = medsInSection.every(med => med.status === 'taken');
-    const newStatus = areAllCurrentlyTaken ? undefined : 'taken';
-
-    const newMeds = medicationsForDay.map(med =>
-        medIdsInSection.includes(med.id) ? { ...med, status: newStatus } : med
-    );
-    setMedicationsForDay(newMeds);
-    saveCurrentState(newMeds, selectedMood, notes);
-  };
-
-  const handleMoodSelect = (moodValue: Mood) => {
-    const newSelectedMood = selectedMood === moodValue ? null : moodValue;
-    setSelectedMood(newSelectedMood);
-    saveCurrentState(medicationsForDay, newSelectedMood, notes);
-  };
-
-  const handleNotesChange = (e: React.ChangeEvent<HTMLTextAreaElement>) => {
-    const newNotes = e.target.value;
-    setNotes(newNotes);
-  };
-  
-  const handleNotesBlur = () => {
-    saveCurrentState(medicationsForDay, selectedMood, notes);
-  }
-
-
-  const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
-    const allTakenInSection = meds.length > 0 && meds.every(med => med.status === 'taken');
-    const buttonText = allTakenInSection ? `Unmark All ${title}` : `Mark All ${title} as Taken`;
-    
-    let accordionBgClass = "border-primary/20"; // Default
-    if (meds.length === 0) {
-        accordionBgClass = "bg-muted border-muted-foreground/20";
-    } else if (allTakenInSection) {
-        accordionBgClass = "bg-green-500/10 border-green-500/30";
-    } else {
-        accordionBgClass = "bg-primary/10 border-primary/20";
+  useEffect(() => {
+    // Scroll to bottom when new messages are added
+    if (scrollAreaRef.current) {
+      const scrollViewport = scrollAreaRef.current.querySelector('div[data-radix-scroll-area-viewport]');
+      if (scrollViewport) {
+        scrollViewport.scrollTop = scrollViewport.scrollHeight;
+      }
     }
+  }, [chatMessages]);
 
-    return (
-        <AccordionItem
-            value={sectionKey}
-            className={cn("border-b-0 border rounded-lg mb-3 p-1", accordionBgClass)}
-        >
-             <AccordionTrigger
-                className="text-md font-semibold text-foreground hover:no-underline py-3 px-3"
-            >
-                {title} ({meds.length})
-            </AccordionTrigger>
-            <AccordionContent className="pt-0 pb-3 px-3">
-                 {meds.length > 0 ? (
-                    <>
-                        <ul className="space-y-3 mb-4">
-                            {meds.map((med) => (
-                            <li key={med.id} className={`flex items-center gap-3 p-2 rounded-md ${med.status === 'taken' ? 'bg-green-500/20' : 'bg-background/50'}`}>
-                                {med.medicationDetails?.imageUrl && (
-                                <Image
-                                    src={med.medicationDetails.imageUrl}
-                                    alt={med.medicationDetails.name}
-                                    width={32}
-                                    height={32}
-                                    className="rounded-md object-cover"
-                                    data-ai-hint={med.medicationDetails.dataAiHint || "pill"}
-                                />
-                                )}
-                                <div className="flex-grow">
-                                    <p className="font-medium text-sm text-foreground">
-                                        {med.medicationDetails?.name || med.medicationName}
-                                        {med.medicationDetails?.dosage && <span className="font-normal text-xs text-foreground ml-2">{med.medicationDetails.dosage}</span>}
-                                    </p>
-                                </div>
-                                {med.status === 'taken' && <CheckCircle className="w-5 h-5 text-green-600" />}
-                            </li>
-                            ))}
-                        </ul>
-                        <Button
-                            size="sm"
-                            onClick={() => handleMarkSectionAsTaken(sectionKey)}
-                            className={cn(
-                                "w-full",
-                                allTakenInSection
-                                ? "bg-green-600 hover:bg-green-700 text-white"
-                                : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
-                            )}
-                        >
-                            <CheckCircle className="w-4 h-4 mr-2" />
-                            {buttonText}
-                        </Button>
-                    </>
-                 ) : (
-                     <p className="text-sm text-muted-foreground pt-2">No medications scheduled for {sectionKey.toLowerCase()}.</p>
-                 )}
-            </AccordionContent>
-        </AccordionItem>
-    );
+  const handleSendMessage = async () => {
+    if (!userInput.trim()) return;
+
+    const newUserMessage: ChatMessage = {
+      id: String(Date.now()),
+      sender: "user",
+      text: userInput.trim(),
+    };
+    setChatMessages((prevMessages) => [...prevMessages, newUserMessage]);
+    setUserInput("");
+    setIsLoading(true);
+
+    try {
+      const response = await medicationScheduler({ userInput: newUserMessage.text });
+      const philResponseMessage: ChatMessage = {
+        id: String(Date.now() + 1),
+        sender: "phil",
+        text: response.philResponse,
+      };
+      setChatMessages((prevMessages) => [...prevMessages, philResponseMessage]);
+    } catch (error) {
+      console.error("Error getting response from Phil:", error);
+      const errorResponseMessage: ChatMessage = {
+        id: String(Date.now() + 1),
+        sender: "phil",
+        text: "Sorry, I had a little trouble understanding that. Could you try rephrasing?",
+      };
+      setChatMessages((prevMessages) => [...prevMessages, errorResponseMessage]);
+    } finally {
+      setIsLoading(false);
+    }
   };
 
+  const handleKeyPress = (event: React.KeyboardEvent<HTMLTextAreaElement>) => {
+    if (event.key === 'Enter' && !event.shiftKey) {
+      event.preventDefault();
+      handleSendMessage();
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg">
+      <DialogContent className="sm:max-w-lg h-[70vh] flex flex-col">
         <DialogClose asChild>
           <Button variant="ghost" className="absolute right-4 top-4 h-auto p-1 text-sm text-muted-foreground hover:text-foreground">
-            Save & Close 
+            Save & Close
             <XIcon className="w-4 h-4 ml-1" />
           </Button>
         </DialogClose>
         <DialogHeader className="pr-16">
-          <DialogTitle className="text-lg font-semibold">{currentDisplayDate}</DialogTitle>
+          <DialogTitle className="text-lg font-semibold">Set Up Your Medication Schedule with Phil</DialogTitle>
           <DialogDescription>
-            Manage your daily medication adherence based on your weekly schedule and track how you&apos;re feeling. Changes are saved automatically.
+            Phil will help you define your weekly medication routine. Changes will be reflected in your schedule.
           </DialogDescription>
         </DialogHeader>
 
-        <div className="py-4 space-y-4 max-h-[60vh] overflow-y-auto px-1">
-          <section>
-            <h3 className="text-md font-semibold mb-2 text-foreground">Your Medications Today</h3>
-            <Accordion type="multiple" className="w-full space-y-1">
-                {medicationSection("Morning", categorizedMeds.morning, 'morning')}
-                {medicationSection("Lunch", categorizedMeds.lunch, 'lunch')}
-                {medicationSection("Dinner", categorizedMeds.dinner, 'dinner')}
-                {medicationSection("Night", categorizedMeds.night, 'night')}
-            </Accordion>
-            {medicationsForDay.length === 0 && (
-                <p className="text-sm text-muted-foreground mt-2">No medications scheduled for this day.</p>
+        <ScrollArea ref={scrollAreaRef} className="flex-grow p-1 -mx-1 mb-4 border-y">
+          <div className="space-y-4 p-3">
+            {chatMessages.map((message) => (
+              <div
+                key={message.id}
+                className={cn(
+                  "flex items-start gap-3 p-3 rounded-lg max-w-[85%]",
+                  message.sender === "user"
+                    ? "ml-auto bg-primary text-primary-foreground"
+                    : "bg-muted"
+                )}
+              >
+                {message.sender === "phil" && <Bot className="w-6 h-6 text-primary flex-shrink-0 mt-0.5" />}
+                <p className="text-sm whitespace-pre-wrap">{message.text}</p>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted max-w-[85%]">
+                <Bot className="w-6 h-6 text-primary flex-shrink-0 mt-0.5" />
+                <p className="text-sm italic">Phil is thinking...</p>
+              </div>
             )}
-          </section>
+          </div>
+        </ScrollArea>
 
-          <section className="pt-2">
-            <h3 className="text-md font-semibold mb-3 text-foreground">How Are You Feeling?</h3>
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-3 mb-3">
-              {MOOD_OPTIONS.map(({ value, label, icon: Icon }) => (
-                <Button
-                  key={value}
-                  onClick={() => handleMoodSelect(value)}
-                  className={cn(
-                    'flex-1 min-w-[70px] sm:min-w-[80px] py-2 h-auto flex-col gap-1 transition-colors focus-visible:outline-none focus-visible:ring-2 focus-visible:ring-ring focus-visible:ring-offset-2 rounded-md', 
-                    selectedMood === value
-                      ? 'bg-accent text-accent-foreground hover:bg-accent/90'
-                      : 'text-foreground border border-input bg-background hover:bg-accent hover:text-accent-foreground'
-                  )}
-                >
-                  <Icon className={cn(
-                      'w-7 h-7 sm:w-8 sm:h-8 mb-0.5',
-                      selectedMood === value ? 'text-accent-foreground' : 'text-foreground'
-                    )}
-                  />
-                  <span className="text-xs">{label}</span>
-                </Button>
-              ))}
-            </div>
-            <Textarea
-              placeholder="Any notes about your mood or day? (Optional)"
-              value={notes}
-              onChange={handleNotesChange}
-              onBlur={handleNotesBlur}
-              rows={3}
-            />
-          </section>
+        <div className="mt-auto flex gap-2 items-center">
+          <Textarea
+            placeholder="Type your schedule details here..."
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            onKeyPress={handleKeyPress}
+            rows={2}
+            className="flex-grow resize-none"
+            disabled={isLoading}
+          />
+          <Button onClick={handleSendMessage} disabled={isLoading || !userInput.trim()} className="bg-accent text-accent-foreground hover:bg-accent/90">
+            <Send className="w-4 h-4 mr-2" />
+            Send
+          </Button>
         </div>
       </DialogContent>
     </Dialog>

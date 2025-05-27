@@ -16,10 +16,12 @@ import {
   AccordionTrigger,
 } from "@/components/ui/accordion";
 import { Card, CardContent } from "@/components/ui/card";
-import { philMotivator, PhilMotivatorInput } from "@/ai/flows/phil-motivator"; // Updated import
+import { philMotivator, PhilMotivatorInput } from "@/ai/flows/phil-motivator";
 
 export default function HomePage() {
   const [dispenserPopupOpen, setDispenserPopupOpen] = useState(false);
+  // selectedDateForPopup is no longer directly used by DispenserPopup for schedule definition
+  // but kept in case WeeklyCalendarView still needs to pass a date for other potential future uses or context.
   const [selectedDateForPopup, setSelectedDateForPopup] = useState<Date | null>(null);
   const { toast } = useToast();
   const [pageTitle, setPageTitle] = useState("PillPal"); 
@@ -49,18 +51,20 @@ export default function HomePage() {
   }, [triggerPhilMessage]);
 
   const handleOpenReFillPal = () => {
-    setSelectedDateForPopup(new Date()); 
+    // setSelectedDateForPopup(new Date()); // Not strictly necessary for schedule definition
     setDispenserPopupOpen(true);
   };
 
   const handleCalendarDayClick = (dayIndex: number) => { 
-    const today = new Date();
-    const currentDayOfWeekJS = today.getDay(); 
-    const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
-    const dayDifference = dayIndex - todayDayOfWeekMon0;
-    const calculatedDate = new Date(today);
-    calculatedDate.setDate(today.getDate() + dayDifference);
-    setSelectedDateForPopup(calculatedDate);
+    // const today = new Date();
+    // const currentDayOfWeekJS = today.getDay(); 
+    // const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
+    // const dayDifference = dayIndex - todayDayOfWeekMon0;
+    // const calculatedDate = new Date(today);
+    // calculatedDate.setDate(today.getDate() + dayDifference);
+    // setSelectedDateForPopup(calculatedDate);
+    // The popup is now for defining the whole schedule, so the specific day clicked
+    // is less relevant to its core function, but we still open it.
     setDispenserPopupOpen(true);
   };
 
@@ -79,12 +83,11 @@ export default function HomePage() {
     <MainLayout pageTitle={pageTitle} headerActions={headerActions} showDate={true}>
       <DispenserPopup 
         isOpen={dispenserPopupOpen} 
-        onOpenChange={setDispenserPopupOpen} 
-        targetDate={selectedDateForPopup || undefined}
-        triggerPhilMessage={triggerPhilMessage} // Pass the function to the popup
+        onOpenChange={setDispenserPopupOpen}
+        // targetDate and triggerPhilMessage are no longer passed as the popup's role has changed
       />
       
-      <div className="max-w-lg mx-auto space-y-6"> {/* Changed max-w-2xl to max-w-lg */}
+      <div className="max-w-lg mx-auto space-y-6">
         <SupportBotSection 
           philMessage={isPhilLoading ? "Phil is thinking..." : philMessage} 
           philEmoji={isPhilLoading ? "⏳" : philEmoji} 
