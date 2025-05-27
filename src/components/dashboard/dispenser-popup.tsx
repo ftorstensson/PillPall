@@ -29,7 +29,7 @@ interface DispenserPopupProps {
 
 interface MedicationToTake extends Reminder {
     medicationDetails?: Medication;
-    status?: 'taken' | undefined; // 'skipped' status removed as per prior simplification
+    status?: 'taken' | undefined;
 }
 
 const getTimeCategory = (time: string): 'morning' | 'lunch' | 'dinner' | 'night' => {
@@ -53,7 +53,6 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const saveCurrentState = useCallback(async (currentMeds: MedicationToTake[], currentMood: Mood | null, currentNotes: string) => {
     const dateForEntry = getDateISO(targetDate || new Date());
     
-    // Persist medication statuses
     if (!MOCK_DAILY_MED_STATUSES[dateForEntry]) {
       MOCK_DAILY_MED_STATUSES[dateForEntry] = {};
     }
@@ -62,24 +61,22 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
     });
     console.log("Medication Statuses for", dateForEntry, ":", MOCK_DAILY_MED_STATUSES[dateForEntry]);
 
-    // Log mood entry whether it's null or a Mood value
     const newMoodEntry: MoodEntry | { date: string, mood: null, notes: string } = {
-      id: String(Date.now()), // Mock ID
+      id: String(Date.now()), 
       date: dateForEntry,
       mood: currentMood, 
       notes: currentNotes,
     };
     console.log("Mood Entry for", dateForEntry, ":", newMoodEntry);
-    // In a real app, you'd persist newMoodEntry
-    // And MOCK_MOOD_ENTRIES would also be updated or use a persistent source
+    
     const existingMoodIndex = MOCK_MOOD_ENTRIES.findIndex(e => e.date === dateForEntry);
     if (existingMoodIndex > -1) {
-        if (currentMood === null && currentNotes === "") { // If mood is deselected and notes are empty, remove entry
+        if (currentMood === null && currentNotes === "") { 
             MOCK_MOOD_ENTRIES.splice(existingMoodIndex, 1);
         } else {
             MOCK_MOOD_ENTRIES[existingMoodIndex] = { ...MOCK_MOOD_ENTRIES[existingMoodIndex], mood: currentMood!, notes: currentNotes };
         }
-    } else if (currentMood !== null || currentNotes !== "") { // Only add if there's a mood or notes
+    } else if (currentMood !== null || currentNotes !== "") { 
         MOCK_MOOD_ENTRIES.push(newMoodEntry as MoodEntry);
     }
     
@@ -102,7 +99,6 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
 
       const dayStr = dateToUse.toLocaleDateString('en-US', { weekday: 'short' });
       
-      // Load persisted statuses for the day
       const dailyStatuses = MOCK_DAILY_MED_STATUSES[dateISO] || {};
 
       const remindersForDate = MOCK_REMINDERS.filter(r =>
@@ -112,7 +108,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
           return { 
             ...reminder, 
             medicationDetails: medDetails, 
-            status: dailyStatuses[reminder.id] // Apply persisted status
+            status: dailyStatuses[reminder.id] 
           };
       }).sort((a, b) => {
         const timeA = parseInt(a.time.replace(':', ''), 10);
@@ -122,7 +118,6 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
 
       setMedicationsForDay(remindersForDate);
 
-      // Load persisted mood and notes
       const todaysMoodEntry = MOCK_MOOD_ENTRIES.find(entry => entry.date === dateISO);
       setSelectedMood(todaysMoodEntry?.mood || null); 
       setNotes(todaysMoodEntry?.notes || ""); 
@@ -179,9 +174,15 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
   const medicationSection = (title: string, meds: MedicationToTake[], sectionKey: 'morning' | 'lunch' | 'dinner' | 'night') => {
     const allTakenInSection = meds.length > 0 && meds.every(med => med.status === 'taken');
     const buttonText = allTakenInSection ? `Unmark All ${title}` : `Mark All ${title} as Taken`;
-    const accordionBgClass = 
-        meds.length === 0 ? "bg-muted border-muted-foreground/20" :
-        allTakenInSection ? "bg-green-500/10 border-green-500/30" : "bg-primary/10 border-primary/20";
+    
+    let accordionBgClass = "border-primary/20"; // Default
+    if (meds.length === 0) {
+        accordionBgClass = "bg-muted border-muted-foreground/20";
+    } else if (allTakenInSection) {
+        accordionBgClass = "bg-green-500/10 border-green-500/30";
+    } else {
+        accordionBgClass = "bg-primary/10 border-primary/20";
+    }
 
     return (
         <AccordionItem
@@ -254,7 +255,7 @@ export function DispenserPopup({ isOpen, onOpenChange, targetDate, triggerPhilMe
         <DialogHeader className="pr-16">
           <DialogTitle className="text-lg font-semibold">{currentDisplayDate}</DialogTitle>
           <DialogDescription>
-            Manage your medications and track how you&apos;re feeling. Changes are saved automatically.
+            Manage your daily medication adherence based on your weekly schedule and track how you&apos;re feeling. Changes are saved automatically.
           </DialogDescription>
         </DialogHeader>
 
