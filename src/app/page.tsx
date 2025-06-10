@@ -5,8 +5,9 @@ import { MainLayout } from "@/components/layout/main-layout";
 import { Button } from "@/components/ui/button";
 import { useState, useEffect, useCallback } from "react";
 import { useToast } from "@/hooks/use-toast";
-import { Pill, RotateCcw } from "lucide-react"; 
+import { RotateCcw } from "lucide-react"; 
 import { DispenserPopup } from "@/components/dashboard/dispenser-popup";
+import { ScheduleChatPopup } from "@/components/dashboard/schedule-chat-popup"; // Renamed import
 import { SupportBotSection } from "@/components/dashboard/support-bot-section";
 import { WeeklyCalendarView } from "@/components/dashboard/weekly-calendar-view";
 import {
@@ -19,12 +20,12 @@ import { Card, CardContent } from "@/components/ui/card";
 import { philMotivator, PhilMotivatorInput } from "@/ai/flows/phil-motivator";
 
 export default function HomePage() {
-  const [dispenserPopupOpen, setDispenserPopupOpen] = useState(false);
-  // selectedDateForPopup is no longer directly used by DispenserPopup for weekly schedule setup
-  // but kept for now as day click logic still sets it.
-  const [selectedDateForPopup, setSelectedDateForPopup] = useState<Date | null>(null);
+  const [dailyDispenserOpen, setDailyDispenserOpen] = useState(false);
+  const [selectedDateForDispenser, setSelectedDateForDispenser] = useState<Date | null>(null);
+  const [scheduleChatOpen, setScheduleChatOpen] = useState(false);
+
   const { toast } = useToast();
-  const [pageTitle, setPageTitle] = useState("PillPal"); 
+  const pageTitle = "PillPal"; 
   
   const [philMessage, setPhilMessage] = useState<string>("Thinking...");
   const [philEmoji, setPhilEmoji] = useState<string>("⏳");
@@ -50,15 +51,11 @@ export default function HomePage() {
     triggerPhilMessage("PAGE_LOAD");
   }, [triggerPhilMessage]);
 
-  const handleOpenReFillPal = () => {
-    // For weekly schedule setup, a specific date isn't strictly necessary for the popup itself.
-    // We open the popup directly.
-    setDispenserPopupOpen(true);
+  const handleOpenReFillPalChat = () => {
+    setScheduleChatOpen(true);
   };
 
   const handleCalendarDayClick = (dayIndex: number) => { 
-    // This logic sets a date, but the DispenserPopup (now for weekly setup) won't use it.
-    // The popup will still open, which is the current behavior.
     const today = new Date();
     const currentDayOfWeekJS = today.getDay(); 
     const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
@@ -66,15 +63,20 @@ export default function HomePage() {
     const calculatedDate = new Date(today);
     calculatedDate.setDate(today.getDate() + dayDifference);
     
-    setSelectedDateForPopup(calculatedDate); // Still set, though popup ignores it.
-    setDispenserPopupOpen(true); // Open the schedule setup chat.
+    setSelectedDateForDispenser(calculatedDate);
+    setDailyDispenserOpen(true);
   };
+  
+  const handleHeaderReFillPalClick = () => {
+    setScheduleChatOpen(true); // Open schedule setup chat
+  };
+
 
   const headerActions = (
     <Button
       variant="outline"
       className="border-black text-black bg-white hover:bg-gray-100 hover:text-black focus:ring-black"
-      onClick={handleOpenReFillPal}
+      onClick={handleHeaderReFillPalClick}
     >
       <RotateCcw className="w-4 h-4 mr-2" />
       ReFillPal
@@ -83,10 +85,15 @@ export default function HomePage() {
 
   return (
     <MainLayout pageTitle={pageTitle} headerActions={headerActions} showDate={true}>
-      {/* DispenserPopup no longer needs targetDate or triggerPhilMessage for schedule setup */}
       <DispenserPopup 
-        isOpen={dispenserPopupOpen} 
-        onOpenChange={setDispenserPopupOpen}
+        isOpen={dailyDispenserOpen} 
+        onOpenChange={setDailyDispenserOpen}
+        targetDate={selectedDateForDispenser}
+        triggerPhilMessage={triggerPhilMessage}
+      />
+      <ScheduleChatPopup
+        isOpen={scheduleChatOpen}
+        onOpenChange={setScheduleChatOpen}
       />
       
       <div className="max-w-lg mx-auto space-y-6">

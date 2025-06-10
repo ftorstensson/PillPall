@@ -36,8 +36,8 @@ export const MOCK_REMINDERS: Reminder[] = [
   { id: 'r4', medicationId: '3', medicationName: 'Vitamin D3', time: '08:30', days: ['Mon', 'Wed', 'Fri'], isEnabled: false },
 ];
 
-// Stores { [dateISO: string]: { [reminderId: string]: 'taken' | undefined } }
-export const MOCK_DAILY_MED_STATUSES: { [dateISO: string]: { [reminderId: string]: 'taken' | undefined } } = {};
+// Stores { [dateISO: string]: { medStatus?: { [reminderId: string]: 'taken' | undefined }, mood?: Mood | null, notes?: string } }
+export const MOCK_DAILY_MED_STATUSES: { [dateISO: string]: { medStatus?: { [reminderId: string]: 'taken' | undefined }, mood?: Mood | null, notes?: string } } = {};
 
 
 export const MOCK_MOOD_ENTRIES: MoodEntry[] = [
