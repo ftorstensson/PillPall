@@ -20,8 +20,6 @@ import { philMotivator, PhilMotivatorInput } from "@/ai/flows/phil-motivator";
 
 export default function HomePage() {
   const [dispenserPopupOpen, setDispenserPopupOpen] = useState(false);
-  // selectedDateForPopup is no longer directly used by DispenserPopup for schedule definition
-  // but kept in case WeeklyCalendarView still needs to pass a date for other potential future uses or context.
   const [selectedDateForPopup, setSelectedDateForPopup] = useState<Date | null>(null);
   const { toast } = useToast();
   const [pageTitle, setPageTitle] = useState("PillPal"); 
@@ -51,20 +49,23 @@ export default function HomePage() {
   }, [triggerPhilMessage]);
 
   const handleOpenReFillPal = () => {
-    // setSelectedDateForPopup(new Date()); // Not strictly necessary for schedule definition
+    setSelectedDateForPopup(new Date()); // For "today"
     setDispenserPopupOpen(true);
   };
 
   const handleCalendarDayClick = (dayIndex: number) => { 
-    // const today = new Date();
-    // const currentDayOfWeekJS = today.getDay(); 
-    // const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
-    // const dayDifference = dayIndex - todayDayOfWeekMon0;
-    // const calculatedDate = new Date(today);
-    // calculatedDate.setDate(today.getDate() + dayDifference);
-    // setSelectedDateForPopup(calculatedDate);
-    // The popup is now for defining the whole schedule, so the specific day clicked
-    // is less relevant to its core function, but we still open it.
+    const today = new Date();
+    // JS Date: Sunday = 0, Monday = 1, ..., Saturday = 6
+    // Our dayIndex: Monday = 0, ..., Sunday = 6
+    const currentDayOfWeekJS = today.getDay(); 
+    const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1; // Adjust JS to Mon=0
+    
+    const dayDifference = dayIndex - todayDayOfWeekMon0;
+    
+    const calculatedDate = new Date(today);
+    calculatedDate.setDate(today.getDate() + dayDifference);
+    
+    setSelectedDateForPopup(calculatedDate);
     setDispenserPopupOpen(true);
   };
 
@@ -81,11 +82,14 @@ export default function HomePage() {
 
   return (
     <MainLayout pageTitle={pageTitle} headerActions={headerActions} showDate={true}>
-      <DispenserPopup 
-        isOpen={dispenserPopupOpen} 
-        onOpenChange={setDispenserPopupOpen}
-        // targetDate and triggerPhilMessage are no longer passed as the popup's role has changed
-      />
+      {selectedDateForPopup && ( // Only render if a date is selected
+        <DispenserPopup 
+          isOpen={dispenserPopupOpen} 
+          onOpenChange={setDispenserPopupOpen}
+          targetDate={selectedDateForPopup}
+          triggerPhilMessage={triggerPhilMessage}
+        />
+      )}
       
       <div className="max-w-lg mx-auto space-y-6">
         <SupportBotSection 
@@ -124,3 +128,5 @@ export default function HomePage() {
     </MainLayout>
   );
 }
+
+    
