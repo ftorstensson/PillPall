@@ -20,6 +20,8 @@ import { philMotivator, PhilMotivatorInput } from "@/ai/flows/phil-motivator";
 
 export default function HomePage() {
   const [dispenserPopupOpen, setDispenserPopupOpen] = useState(false);
+  // selectedDateForPopup is no longer directly used by DispenserPopup for weekly schedule setup
+  // but kept for now as day click logic still sets it.
   const [selectedDateForPopup, setSelectedDateForPopup] = useState<Date | null>(null);
   const { toast } = useToast();
   const [pageTitle, setPageTitle] = useState("PillPal"); 
@@ -49,24 +51,23 @@ export default function HomePage() {
   }, [triggerPhilMessage]);
 
   const handleOpenReFillPal = () => {
-    setSelectedDateForPopup(new Date()); // For "today"
+    // For weekly schedule setup, a specific date isn't strictly necessary for the popup itself.
+    // We open the popup directly.
     setDispenserPopupOpen(true);
   };
 
   const handleCalendarDayClick = (dayIndex: number) => { 
+    // This logic sets a date, but the DispenserPopup (now for weekly setup) won't use it.
+    // The popup will still open, which is the current behavior.
     const today = new Date();
-    // JS Date: Sunday = 0, Monday = 1, ..., Saturday = 6
-    // Our dayIndex: Monday = 0, ..., Sunday = 6
     const currentDayOfWeekJS = today.getDay(); 
-    const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1; // Adjust JS to Mon=0
-    
+    const todayDayOfWeekMon0 = (currentDayOfWeekJS === 0) ? 6 : currentDayOfWeekJS - 1;
     const dayDifference = dayIndex - todayDayOfWeekMon0;
-    
     const calculatedDate = new Date(today);
     calculatedDate.setDate(today.getDate() + dayDifference);
     
-    setSelectedDateForPopup(calculatedDate);
-    setDispenserPopupOpen(true);
+    setSelectedDateForPopup(calculatedDate); // Still set, though popup ignores it.
+    setDispenserPopupOpen(true); // Open the schedule setup chat.
   };
 
   const headerActions = (
@@ -82,14 +83,11 @@ export default function HomePage() {
 
   return (
     <MainLayout pageTitle={pageTitle} headerActions={headerActions} showDate={true}>
-      {selectedDateForPopup && ( // Only render if a date is selected
-        <DispenserPopup 
-          isOpen={dispenserPopupOpen} 
-          onOpenChange={setDispenserPopupOpen}
-          targetDate={selectedDateForPopup}
-          triggerPhilMessage={triggerPhilMessage}
-        />
-      )}
+      {/* DispenserPopup no longer needs targetDate or triggerPhilMessage for schedule setup */}
+      <DispenserPopup 
+        isOpen={dispenserPopupOpen} 
+        onOpenChange={setDispenserPopupOpen}
+      />
       
       <div className="max-w-lg mx-auto space-y-6">
         <SupportBotSection 
@@ -128,5 +126,3 @@ export default function HomePage() {
     </MainLayout>
   );
 }
-
-    

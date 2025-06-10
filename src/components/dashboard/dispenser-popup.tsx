@@ -1,7 +1,7 @@
 
 "use client";
 
-import React, { useState, useEffect, useCallback, useRef } from "react";
+import React, { useState, useEffect, useRef, FormEvent } from "react";
 import {
   Dialog,
   DialogContent,
@@ -12,291 +12,166 @@ import {
 } from "@/components/ui/dialog";
 import { Button } from "@/components/ui/button";
 import { Textarea } from "@/components/ui/textarea";
-import {
-  Accordion,
-  AccordionContent,
-  AccordionItem,
-  AccordionTrigger,
-} from "@/components/ui/accordion";
-import { Card } from "@/components/ui/card";
-import { XIcon, Bot, CheckCircle, Pill } from "lucide-react";
+import { ScrollArea } from "@/components/ui/scroll-area";
+import { Bot, User, Send, XIcon, Loader2 } from "lucide-react";
 import { cn } from "@/lib/utils";
-import { MOCK_REMINDERS, MOCK_MEDICATIONS, MOCK_MOOD_ENTRIES, MOOD_OPTIONS, MOCK_DAILY_MED_STATUSES } from "@/lib/constants";
-import type { Reminder, Medication, MoodEntry, Mood } from "@/lib/types";
-import { useToast } from "@/hooks/use-toast";
-import Image from "next/image";
-import { philMotivator, PhilMotivatorInput } from "@/ai/flows/phil-motivator";
-
+import { medicationScheduler, MedicationSchedulerInput } from "@/ai/flows/medication-scheduler-flow";
 
 interface DispenserPopupProps {
   isOpen: boolean;
   onOpenChange: (open: boolean) => void;
-  targetDate: Date | null;
-  triggerPhilMessage: (eventType: string, eventContext?: string) => void;
 }
 
-type MedicationStatus = "taken" | "skipped" | undefined; // undefined means pending
-
-interface DailyMedStatus {
-  [reminderId: string]: MedicationStatus;
+interface ChatMessage {
+  id: string;
+  sender: "user" | "phil";
+  text: string;
 }
 
-export function DispenserPopup({
-  isOpen,
-  onOpenChange,
-  targetDate,
-  triggerPhilMessage,
-}: DispenserPopupProps) {
-  const [currentMedStatuses, setCurrentMedStatuses] = useState<DailyMedStatus>({});
-  const [selectedMood, setSelectedMood] = useState<Mood | null>(null);
-  const [notes, setNotes] = useState("");
-  const [isSaving, setIsSaving] = useState(false);
-  const { toast } = useToast();
+export function DispenserPopup({ isOpen, onOpenChange }: DispenserPopupProps) {
+  const [userInput, setUserInput] = useState("");
+  const [chatMessages, setChatMessages] = useState<ChatMessage[]>([]);
+  const [isLoading, setIsLoading] = useState(false);
+  const scrollAreaRef = useRef<HTMLDivElement>(null);
+  const messagesEndRef = useRef<HTMLDivElement>(null);
 
-  const dateISO = targetDate ? targetDate.toISOString().split("T")[0] : new Date().toISOString().split("T")[0];
-
-  const saveCurrentState = useCallback(async (updatedMedStatuses: DailyMedStatus, mood: Mood | null, currentNotes: string) => {
-    if (!targetDate) return;
-    setIsSaving(true);
-    const dateKey = targetDate.toISOString().split("T")[0];
-
-    // Persist medication statuses
-    MOCK_DAILY_MED_STATUSES[dateKey] = { ...MOCK_DAILY_MED_STATUSES[dateKey], ...updatedMedStatuses };
-
-    // Persist mood and notes
-    const moodEntryIndex = MOCK_MOOD_ENTRIES.findIndex(e => e.date === dateKey);
-    if (mood) {
-      if (moodEntryIndex > -1) {
-        MOCK_MOOD_ENTRIES[moodEntryIndex] = { ...MOCK_MOOD_ENTRIES[moodEntryIndex], mood, notes: currentNotes };
-      } else {
-        MOCK_MOOD_ENTRIES.push({ id: String(Date.now()), date: dateKey, mood, notes: currentNotes });
-      }
-    } else if (moodEntryIndex > -1 && currentNotes !== MOCK_MOOD_ENTRIES[moodEntryIndex].notes) { // Mood is null, but notes might have changed
-       MOCK_MOOD_ENTRIES[moodEntryIndex].notes = currentNotes;
-    } else if (moodEntryIndex === -1 && currentNotes) { // No mood, but notes exist
-        MOCK_MOOD_ENTRIES.push({ id: String(Date.now()), date: dateKey, mood: 'okay', notes: currentNotes }); // Default to 'okay' if only notes
-    }
-
-
-    toast({
-      title: "Status Updated",
-      description: "Your changes have been automatically updated.",
-    });
-    await triggerPhilMessage("STATUS_SAVED_POPUP", `Updated log for ${targetDate.toLocaleDateString()}`);
-    setIsSaving(false);
-  }, [targetDate, toast, triggerPhilMessage]);
-
+  const initialInstructions = "Hi! I'm Phil. Let's set up your weekly medication schedule. Tell me about the medications you take: their names, dosages, what time you take them, and on which days. For example, you can say: 'Lisinopril 10mg every morning at 8 AM' or 'Metformin 500mg twice a day with meals on weekdays.'";
 
   useEffect(() => {
-    if (isOpen && targetDate) {
-      const dateKey = targetDate.toISOString().split('T')[0];
-      
-      // Load persisted medication statuses
-      setCurrentMedStatuses(MOCK_DAILY_MED_STATUSES[dateKey] || {});
-
-      // Load persisted mood and notes
-      const todaysMoodEntry = MOCK_MOOD_ENTRIES.find(entry => entry.date === dateKey);
-      setSelectedMood(todaysMoodEntry?.mood || null);
-      setNotes(todaysMoodEntry?.notes || "");
+    if (isOpen && chatMessages.length === 0) {
+      setChatMessages([
+        { id: "phil-intro", sender: "phil", text: initialInstructions },
+      ]);
     }
-  }, [isOpen, targetDate]);
+    if (!isOpen) {
+      // Optional: Clear chat history when dialog closes if desired
+      // setChatMessages([]); 
+    }
+  }, [isOpen]);
 
-  const scheduledReminders = targetDate
-    ? MOCK_REMINDERS.filter((r) => {
-        if (!r.isEnabled) return false;
-        const reminderDate = new Date(targetDate); // Clone to avoid modifying original
-        reminderDate.setHours(
-          parseInt(r.time.split(":")[0]),
-          parseInt(r.time.split(":")[1]),
-          0,
-          0
-        );
-        const dayOfWeek = reminderDate.toLocaleDateString("en-US", { weekday: "short" });
-        return r.days.includes("Daily") || r.days.includes(dayOfWeek);
-      })
-    : [];
-
-  const getMedicationsForSlot = (slot: "Morning" | "Lunch" | "Dinner" | "Night") => {
-    return scheduledReminders
-      .filter((r) => {
-        const hour = parseInt(r.time.split(":")[0]);
-        if (slot === "Morning" && hour >= 5 && hour < 12) return true;
-        if (slot === "Lunch" && hour >= 12 && hour < 17) return true;
-        if (slot === "Dinner" && hour >= 17 && hour < 21) return true;
-        if (slot === "Night" && (hour >= 21 || hour < 5)) return true;
-        return false;
-      })
-      .map((r) => ({
-        ...r,
-        medication: MOCK_MEDICATIONS.find((m) => m.id === r.medicationId),
-        status: currentMedStatuses[r.id],
-      }))
-      .sort((a, b) => a.time.localeCompare(b.time));
+  const scrollToBottom = () => {
+    messagesEndRef.current?.scrollIntoView({ behavior: "smooth" });
   };
 
-  const timeSlots = ["Morning", "Lunch", "Dinner", "Night"] as const;
-  
-  const handleMarkSectionAsTaken = (slot: "Morning" | "Lunch" | "Dinner" | "Night") => {
-    const medsInSlot = getMedicationsForSlot(slot);
-    const allCurrentlyTaken = medsInSlot.every(m => currentMedStatuses[m.id] === 'taken');
-    const newStatus = allCurrentlyTaken ? undefined : 'taken';
-    
-    const updatedSectionStatuses: DailyMedStatus = {};
-    medsInSlot.forEach(m => {
-      updatedSectionStatuses[m.id] = newStatus;
-    });
-    const newStatuses = { ...currentMedStatuses, ...updatedSectionStatuses };
-    setCurrentMedStatuses(newStatuses);
-    saveCurrentState(newStatuses, selectedMood, notes);
-  };
+  useEffect(() => {
+    scrollToBottom();
+  }, [chatMessages]);
 
-  const handleMoodSelect = (mood: Mood) => {
-    const newMood = selectedMood === mood ? null : mood;
-    setSelectedMood(newMood);
-    saveCurrentState(currentMedStatuses, newMood, notes);
-  };
+  const handleSendMessage = async (e: FormEvent) => {
+    e.preventDefault();
+    if (!userInput.trim()) return;
 
-  const handleNotesChange = (newNotes: string) => {
-    setNotes(newNotes);
-  };
-  
-  const handleNotesBlur = () => {
-    saveCurrentState(currentMedStatuses, selectedMood, notes);
-  };
+    const newUserMessage: ChatMessage = {
+      id: String(Date.now()),
+      sender: "user",
+      text: userInput.trim(),
+    };
+    setChatMessages((prev) => [...prev, newUserMessage]);
+    const currentInput = userInput.trim();
+    setUserInput("");
+    setIsLoading(true);
 
-  const defaultOpenSections = timeSlots.filter(slot => getMedicationsForSlot(slot).length > 0);
-
+    try {
+      const input: MedicationSchedulerInput = { userInput: currentInput };
+      const response = await medicationScheduler(input);
+      const philResponseMessage: ChatMessage = {
+        id: String(Date.now() + 1),
+        sender: "phil",
+        text: response.philResponse,
+      };
+      setChatMessages((prev) => [...prev, philResponseMessage]);
+    } catch (error) {
+      console.error("Error calling medicationScheduler flow:", error);
+      const errorResponseMessage: ChatMessage = {
+        id: String(Date.now() + 1),
+        sender: "phil",
+        text: "Sorry, I had a little trouble understanding that. Could you try rephrasing?",
+      };
+      setChatMessages((prev) => [...prev, errorResponseMessage]);
+    } finally {
+      setIsLoading(false);
+    }
+  };
 
   return (
     <Dialog open={isOpen} onOpenChange={onOpenChange}>
-      <DialogContent className="sm:max-w-lg h-[85vh] flex flex-col">
-         <DialogClose asChild>
-          <Button variant="ghost" className="absolute right-4 top-4 h-auto p-1 text-sm text-muted-foreground hover:text-foreground">
-            Save & Close
-            <XIcon className="w-4 h-4 ml-1" />
-          </Button>
-        </DialogClose>
-        <DialogHeader className="pr-16"> {/* Added pr-16 to avoid overlap with custom close button */}
-          <DialogTitle className="text-lg font-semibold">
-            Daily Check-in for {targetDate ? targetDate.toLocaleDateString('en-US', { weekday: 'long', month: 'long', day: 'numeric' }) : "Today"}
-          </DialogTitle>
-          <DialogDescription>
-            Manage your daily medication adherence based on your weekly schedule and track how you're feeling. Changes are saved automatically.
-          </DialogDescription>
+      <DialogContent className="sm:max-w-lg h-[85vh] flex flex-col p-0">
+        <DialogHeader className="p-6 pb-2 border-b">
+           <div className="flex justify-between items-center">
+            <div>
+                <DialogTitle className="text-lg font-semibold">
+                Set Up Your Schedule with Phil
+                </DialogTitle>
+                <DialogDescription className="text-xs text-muted-foreground">
+                Phil will help you input your weekly medications.
+                </DialogDescription>
+            </div>
+            <DialogClose asChild>
+                <Button variant="ghost" className="h-auto p-1 text-sm text-muted-foreground hover:text-foreground">
+                Close
+                <XIcon className="w-4 h-4 ml-1" />
+                </Button>
+            </DialogClose>
+           </div>
         </DialogHeader>
 
-        <div className="flex-grow overflow-y-auto pr-2 space-y-4 py-2">
-          <Accordion type="multiple" defaultValue={defaultOpenSections} className="w-full space-y-3">
-            {timeSlots.map((slot) => {
-              const medicationsInSlot = getMedicationsForSlot(slot);
-              const isEmpty = medicationsInSlot.length === 0;
-              const allTakenInSlot = !isEmpty && medicationsInSlot.every(m => m.status === 'taken');
-              
-              let accordionBgClass = "bg-primary/10"; // Default light blue
-              if (isEmpty) {
-                accordionBgClass = "bg-muted"; // Gray if no meds
-              } else if (allTakenInSlot) {
-                accordionBgClass = "bg-green-500/10"; // Light green if all taken
+        <ScrollArea className="flex-grow p-6" ref={scrollAreaRef}>
+          <div className="space-y-4">
+            {chatMessages.map((msg) => (
+              <div
+                key={msg.id}
+                className={cn(
+                  "flex items-start gap-3 p-3 rounded-lg max-w-[85%]",
+                  msg.sender === "phil"
+                    ? "bg-muted text-foreground" // Changed from text-muted-foreground for better readability
+                    : "bg-primary text-primary-foreground self-end ml-auto"
+                )}
+              >
+                {msg.sender === "phil" ? (
+                  <Bot className="w-6 h-6 shrink-0 text-primary mt-1" />
+                ) : (
+                  <User className="w-6 h-6 shrink-0 text-primary-foreground mt-1" />
+                )}
+                <p className="text-sm whitespace-pre-wrap leading-relaxed">{msg.text}</p>
+              </div>
+            ))}
+            {isLoading && (
+              <div className="flex items-start gap-3 p-3 rounded-lg bg-muted text-foreground self-start max-w-[85%]">
+                <Bot className="w-6 h-6 shrink-0 text-primary mt-1" />
+                <p className="text-sm italic flex items-center">
+                    <Loader2 className="w-4 h-4 mr-2 animate-spin" />
+                    Phil is thinking...
+                </p>
+              </div>
+            )}
+            <div ref={messagesEndRef} />
+          </div>
+        </ScrollArea>
+
+        <form
+          onSubmit={handleSendMessage}
+          className="border-t p-4 flex items-center gap-2 bg-background"
+        >
+          <Textarea
+            value={userInput}
+            onChange={(e) => setUserInput(e.target.value)}
+            placeholder="Tell Phil about your medications..."
+            rows={1}
+            className="flex-grow resize-none min-h-[40px] max-h-[120px] text-sm"
+            onKeyDown={(e) => {
+              if (e.key === 'Enter' && !e.shiftKey) {
+                e.preventDefault();
+                handleSendMessage(e);
               }
-
-              return (
-                <AccordionItem
-                  key={slot}
-                  value={slot}
-                  className={cn("border rounded-md shadow-sm", accordionBgClass)}
-                >
-                  <AccordionTrigger className="px-4 py-3 text-md font-medium hover:no-underline">
-                    {slot} ({medicationsInSlot.length})
-                  </AccordionTrigger>
-                  <AccordionContent className="px-4 pb-4 pt-0">
-                    {isEmpty ? (
-                      <p className="text-sm text-muted-foreground">No medications scheduled for {slot.toLowerCase()}.</p>
-                    ) : (
-                      <div className="space-y-3">
-                        <ul className="space-y-2">
-                          {medicationsInSlot.map(({ medication, time, id, status }) => (
-                            <li key={id} className={cn(
-                                "flex items-center justify-between p-2 rounded-md",
-                                status === 'taken' ? 'bg-green-100' : 'bg-background/50'
-                              )}>
-                              <div className="flex items-center gap-3">
-                                {medication?.imageUrl && (
-                                  <Image
-                                    src={medication.imageUrl}
-                                    alt={medication.name}
-                                    width={32}
-                                    height={32}
-                                    className="rounded-md object-cover"
-                                    data-ai-hint={medication.dataAiHint || "pill"}
-                                  />
-                                )}
-                                <div>
-                                  <span className="font-medium text-foreground">{medication?.name}</span>
-                                  <span className="text-sm text-foreground ml-2">{medication?.dosage}</span>
-                                </div>
-                              </div>
-                              {status === 'taken' && <CheckCircle className="w-5 h-5 text-green-600" />}
-                            </li>
-                          ))}
-                        </ul>
-                        <Button
-                          onClick={() => handleMarkSectionAsTaken(slot)}
-                          variant={allTakenInSlot ? "default" : "outline"}
-                          size="sm"
-                          className={cn(
-                            "w-full",
-                            allTakenInSlot ? "bg-green-600 hover:bg-green-700 text-white" : "bg-secondary hover:bg-secondary/80 text-secondary-foreground"
-                          )}
-                          disabled={isSaving}
-                        >
-                          {allTakenInSlot ? `All ${slot} Meds Taken` : `Mark All ${slot} as Taken`}
-                           {allTakenInSlot && <CheckCircle className="w-4 h-4 ml-2" />}
-                        </Button>
-                      </div>
-                    )}
-                  </AccordionContent>
-                </AccordionItem>
-              );
-            })}
-          </Accordion>
-
-          <Card className="p-4">
-            <h3 className="text-md font-medium mb-3 flex items-center">
-              <Bot className="w-5 h-5 mr-2 text-primary" /> How are you feeling?
-            </h3>
-            <div className="flex flex-wrap justify-center gap-2 sm:gap-2 mb-3">
-              {MOOD_OPTIONS.map(({ value, label, icon: Icon }) => (
-                <Button
-                  key={value}
-                  variant={selectedMood === value ? "default" : "outline"}
-                  onClick={() => handleMoodSelect(value)}
-                  className={cn(
-                    "flex-1 min-w-[60px] sm:min-w-[70px] py-2 h-auto flex-col gap-1 text-xs",
-                    selectedMood === value 
-                      ? 'bg-accent text-accent-foreground hover:bg-accent/90' 
-                      : 'text-foreground border-input hover:bg-muted'
-                  )}
-                  disabled={isSaving}
-                >
-                  <Icon className={cn("w-6 h-6 mb-0.5", selectedMood === value ? 'text-accent-foreground' : 'text-foreground')} />
-                  {label}
-                </Button>
-              ))}
-            </div>
-            <Textarea
-              placeholder="Any notes about your day or mood? (Optional)"
-              value={notes}
-              onChange={(e) => handleNotesChange(e.target.value)}
-              onBlur={handleNotesBlur}
-              rows={3}
-              className="text-sm"
-              disabled={isSaving}
-            />
-          </Card>
-        </div>
+            }}
+            disabled={isLoading}
+          />
+          <Button type="submit" disabled={isLoading || !userInput.trim()} size="icon" className="shrink-0 bg-accent hover:bg-accent/90">
+            <Send className="w-5 h-5" />
+            <span className="sr-only">Send</span>
+          </Button>
+        </form>
       </DialogContent>
     </Dialog>
   );
 }
-
-    
